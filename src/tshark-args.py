@@ -113,7 +113,6 @@ if __name__ == "__main__":
             #サブドメインが存在する行のみ
             df_sub = df[df['subdomain'].notnull()]
 
-            #'subdomain'ごとにグループ化して'src_addr'のセットを取得
             hour_domain_src_addr_dict = df_sub.groupby('subdomain')['ip.dst'].apply(set).to_dict()
 
             # 結果を更新
