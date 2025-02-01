@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
+import math
 import argparse
 
 def make_table(file_path):
     """
     CSVファイル (file_path) から distribution 列を読み込み、
-    6つのビンに分割して度数分布表を作成。
+    スタージェスの式に基づいてビン数を決定し、
+    度数分布表を作成する。
     ビンは大きい方(右端)から順に表示し、
     もし最小値が0未満なら0に丸める（負の区間を防止）。
     """
     # ▼ 1. CSV読み込み
-    #    distribution 列を float で扱う (万一変換できない文字列があれば NaN になる)
+    #    distribution 列を float で扱う (変換できない場合は NaN になる)
     df = pd.read_csv(file_path, dtype={'distribution': float}, low_memory=False)
 
     # ▼ 2. 最小値・最大値を取得
@@ -22,8 +24,10 @@ def make_table(file_path):
     if min_val < 0:
         min_val = 0.0
 
-    # ▼ 3. ビン数設定 (例: 6)
-    bins = 6
+    # ▼ 3. データ個数に基づいてビン数を決定（スタージェスの式）
+    n = len(df)
+    bins = math.ceil(math.log2(n) + 1)
+    print(f"データ個数: {n}, 使用するビン数: {bins}")
 
     # ▼ 4. ビン境界 (等間隔) の作成
     bin_edges = np.linspace(min_val, max_val, bins + 1)
@@ -47,7 +51,6 @@ def make_table(file_path):
     # 累積相対度数
     cum_rel_freq_desc = rel_freq_desc.cumsum()
 
-    # ▼ 8. 出力用の表データを作成
     rows = []
     for i, interval in enumerate(freq_table_desc.index):
         left_edge = interval.left
@@ -64,15 +67,14 @@ def make_table(file_path):
         rows.append({
             "bin_range": f"[{left_edge:.4f}, {right_edge:.4f})",
             "freq": freq,
+            # 必要に応じて累積度数や相対度数も追加可能:
             # "cum_freq": cumf,
-            # "rel_freq(%)": f"{relf * 100:.1f}%",
-            # "cum_rel_freq(%)": f"{cumrelf * 100:.1f}%"
+            # "rel_freq": relf,
+            # "cum_rel_freq": cumrelf,
         })
 
     dist_df = pd.DataFrame(rows)
 
-    # ▼ 9. 表示
-    print("\n度数分布表 (大きい区間から順に表示):\n")
     print(dist_df.to_string(index=False))
 
 
