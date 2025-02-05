@@ -86,7 +86,7 @@ def visualize_popularity_trend_per_domain_gif(year, month, day):
         ax.plot(domain_data["date_time"], domain_data["dnsmagnitude"], marker='o', label=f"{domain}")
         ax.set_xlabel("Date", fontsize=12)
         ax.set_ylabel("DNS Magnitude", fontsize=12)
-        ax.set_title(f"{domain}", fontsize=14)
+        ax.set_title(f"{domain}", fontsize=18)
         ax.set_ylim(0, 10)
         ax.set_xticks(domain_data["date_time"])
         ax.set_xticklabels(domain_data["date_time"].dt.strftime("%Y-%m-%d"), rotation=45)
