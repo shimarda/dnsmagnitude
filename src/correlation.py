@@ -22,10 +22,10 @@ def make(average_file, distribution_file, output_file=None):
 
     # === 各点にドメイン名を表示 ===
     # 少しオフセットしてテキストを表示することで、点とテキストが重なりにくくなります。
-    # for idx, row in df_merged.iterrows():
-    #     ax.text(row['average'] + 0.05, row['distribution'] + 0.05,
-    #             str(row['domain']),
-    #             fontsize=8, color='black')
+    for idx, row in df_merged.iterrows():
+        ax.text(row['average'] + 0.05, row['distribution'] + 0.05,
+                str(row['domain']),
+                fontsize=8, color='black')
 
     # === タイトル・軸ラベル ===
     ax.set_title('distribution')
@@ -34,7 +34,7 @@ def make(average_file, distribution_file, output_file=None):
 
     # === 軸範囲を設定 ===
     ax.set_xlim(0, 10)
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0, 5)
 
     # === 余白を調整して下端がギリギリにならないようにする ===
     fig.subplots_adjust(bottom=0.15, top=0.95, left=0.10, right=0.95)
