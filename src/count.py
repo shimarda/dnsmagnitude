@@ -9,35 +9,47 @@ import argparse
 
 # ファイル名からファイルを開く
 def open_reader(file_name):
-    #権威
+    # 入力ファイルは /mnt/qnap2/shimada/input/ 配下にあるとする
     file_path = f"/mnt/qnap2/shimada/input/{file_name}"
     df = pd.read_csv(file_path)
     return df
 
-# パターンに合うファイル名リスト
+# パターンに合うファイル名リストを取得
 def file_lst(year, month, day):
-    #権威側
+    # 入力ディレクトリのパス
     path = "/mnt/qnap2/shimada/input/*.csv"
-
+    # 例: "2025-02-07-13.csv" のような形式にマッチ
     pattern = re.compile(rf"{year}-{month}-{day}-\d{{2}}\.csv")
-    #files = os.listdir(path)
     files = sorted(glob.glob(path))
     filtered_files = [file for file in files if pattern.match(os.path.basename(file))]
-
     return filtered_files
 
-# ファイル名リストから時間のみを抽出
+# ファイル名から年月日と時間を抽出して、キーを年月日、値を時間リストとする辞書を返す
 def file_time(file_lst):
-    time_list = [
-        os.path.basename(f).replace('-', '').replace('.csv', '') for f in file_lst
-    ]
-    return time_list
+    """
+    ファイル名の例: "2025-02-07-13.csv"  
+    キーを "YYYY-MM-DD"、値を [HH, ...] とした辞書を返す。
+    """
+    file_dict = {}
+    for file in file_lst:
+        basename = os.path.basename(file)
+        parts = basename.split('-')
+        if len(parts) >= 4:
+            y = parts[0]
+            m = parts[1]
+            d = parts[2]
+            # parts[3] は "HH.csv" となっているので拡張子を除去
+            hour = parts[3].replace('.csv', '')
+            date_key = f"{y}-{m}-{d}"  # 例: "2025-02-07"
+            if date_key not in file_dict:
+                file_dict[date_key] = []
+            file_dict[date_key].append(hour)
+    return file_dict
 
-# 一意にしてソートされたリストを作成
+# 一意にしてソートされたリストを作成（※必要に応じて使用）
 def sort_lst(reader, lst):
     exist_set = set(lst)
     new_items = {row[0] for row in reader if row[0] not in exist_set}
-
     lst.extend(new_items)
     lst = sorted(lst, key=operator.itemgetter(0))
     return lst
@@ -45,7 +57,6 @@ def sort_lst(reader, lst):
 # サブドメインを抽出する関数
 def extract_subdomain(qname):
     suffix = '.tsukuba.ac.jp'
-
     if isinstance(qname, str):
         qname_lower = qname.lower()
         if qname_lower.endswith(suffix):
@@ -59,60 +70,42 @@ def extract_subdomain(qname):
                 return subdomain
     return None
 
-
-#権威サーバーからの応答を使用するため
-#カウントするIPアドレスは送信先IPアドレスを用いる
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('-y', help='year')
-    parser.add_argument('-m', help='month')
-    parser.add_argument('-d', help='day')
-
+    parser.add_argument('-y', help='year', required=True)
+    parser.add_argument('-m', help='month', required=True)
+    parser.add_argument('-d', help='day', required=True)
     args = parser.parse_args()
 
     year = args.y
     month = args.m
     day = args.d
 
-    # パターンにあうファイルの時間をリストへ
-    r = file_lst(year, month, day)
-    time_lst = file_time(r)
-    # keyに日にち、値に時間
-    file_dict = {}
+    # 指定された年月日パターンに合うファイルリストを取得
+    files = file_lst(year, month, day)
+    # 各ファイルの年月日と時間を辞書形式にまとめる
+    file_dict = file_time(files)
 
-    # 日にちごとに時間リストへ入れる
-    for time in time_lst:
-        month = time[4:6]
-        day = time[6:8]
-        hour = time[8:10]
-        if day not in file_dict.keys():
-            file_dict[day] = []
-        file_dict[day].append(hour)
-
-    for day in file_dict.keys():
+    # 各日ごとに処理を行う（キーは "YYYY-MM-DD"）
+    for date_key in file_dict.keys():
         uni_src_set = set()
         domain_dict = {}
-        A_tot = 0
 
-        #1時間ごとにファイルにアクセス
-        for hour in file_dict[day]:
-            print(month + day + hour)
-
-            #データフレームを読み込む
-            input_file_name = f"{year}-{month}-{day}-{hour}.csv"
+        # 当該日の各時間（HH）について処理
+        for hour in file_dict[date_key]:
+            print(f"Processing {date_key}-{hour}")
+            # ファイル名例: "2025-02-07-13.csv"
+            input_file_name = f"{date_key}-{hour}.csv"
             df = open_reader(input_file_name)
 
-            #'src_addr'のユニークなセットを更新A_total
+            # 'ip.dst' のユニークなアドレスをセットに追加
             uni_src_set.update(df['ip.dst'].unique())
 
-            #'qname'からサブドメインを抽出して新しい列を追加
+            # 'dns.qry.name' からサブドメインを抽出し、新しい列 'subdomain' を作成
             df['subdomain'] = df['dns.qry.name'].apply(extract_subdomain)
-
-            #サブドメインが存在する行のみ
             df_sub = df[df['subdomain'].notnull()]
 
+            # サブドメインごとに、対応する送信先IPアドレスのセットを作成
             hour_domain_src_addr_dict = df_sub.groupby('subdomain')['ip.dst'].apply(set).to_dict()
 
             # 結果を更新
@@ -124,22 +117,22 @@ if __name__ == "__main__":
 
         A_tot = len(uni_src_set)
         print(f"A_tot : {A_tot}")
-        # マグニチュードの計算とソート
-        domain_magnitude_list = []
-        magnitude_dict = {}
-        for key in domain_dict.keys():
-            src_addr_count = len(domain_dict[key])
-            if src_addr_count > 0:
-                magnitude = src_addr_count
-                magnitude_dict[key] = magnitude
 
-        # マグニチュードの降順でソート
+        # サブドメインごとの送信先IP数（dnsmagnitude）の計算
+        magnitude_dict = {}
+        for domain, src_addrs in domain_dict.items():
+            src_addr_count = len(src_addrs)
+            if src_addr_count > 0:
+                magnitude_dict[domain] = src_addr_count
+
+
+        # マグニチュードの降順にソート
         mag_dict = dict(sorted(magnitude_dict.items(), key=lambda item: item[1], reverse=True))
 
-        # 結果をCSVファイルに書き込む
-        csv_file_path = f"/home/shimada/analysis/output/count/{year}-{month}-{day}.csv"
+        # 結果を CSV ファイルに出力（出力ファイル名は "YYYY-MM-DD.csv"）
+        csv_file_path = f"/home/shimada/analysis/output/count/{date_key}.csv"
         with open(csv_file_path, "w", newline='') as f:
             writer = csv.writer(f, delimiter=',')
-            writer.writerow(['day', 'domain', 'dnsmagnitude'])
-            for subdomain in mag_dict:
-                writer.writerow([f"{day}", subdomain, str(mag_dict[subdomain])])
+            writer.writerow(['date', 'domain', 'dnsmagnitude'])
+            for subdomain, magnitude in mag_dict.items():
+                writer.writerow([date_key, subdomain, str(magnitude)])

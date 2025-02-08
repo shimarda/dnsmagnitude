@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
         # 結果をCSVファイルに書き込む
         csv_file_path = f"/home/shimada/analysis/output/dns_mag/tuika/{year}-{month}-{day}.csv"
-        with open(csv_file_path, "a", newline='') as f:
+        with open(csv_file_path, "w", newline='') as f:
             writer = csv.writer(f, delimiter=',')
             writer.writerow(['day', 'domain', 'dnsmagnitude'])
             for subdomain in mag_dict:
