@@ -22,7 +22,7 @@ def make(average_file, distribution_file, output_file=None):
         df_merged['average'],
         df_merged['distribution'],
         bins=[30, 30],
-        range=[[0, 10], [0, 5]],
+        range=[[0, 10], [0, 0.6]],
         cmap=cmap,
         vmin=0.001  # 0はこの値より小さいので、under色（白）になる
     )
