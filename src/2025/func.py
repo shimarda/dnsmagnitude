@@ -66,3 +66,37 @@ def write_csv(dic, year, month, day):
         writer.writerow(['day', 'domain', 'dnsmagnitude'])
         for subdom, c in dic:
             writer.writerow([f"{day}", subdom, c])
+
+
+def analyze_qtype_ratio(df, year, month, day):
+
+    # サブドメインの抽出
+    df['subdom'] = df['dns.qry.name'].apply(extract_subdomain)
+    df_sub = df[df['subdom'].notnull()]
+
+    subdomain_qtype_counts_hourly = df_sub.groupby(['subdom', 'dns.qry.type']).size().reset_index(name='count')
+    for _, row in subdomain_qtype_counts_hourly.iterrows():
+        subdom = row['subdom']
+        qtype = row['dns.qry.type']
+        count = row['count']
+        daily_subdomain_qtype_counts = dict()
+        if subdom not in daily_subdomain_qtype_counts:
+            daily_subdomain_qtype_counts[subdom] = {}
+        daily_subdomain_qtype_counts[subdom][qtype] = daily_subdomain_qtype_counts[subdom].get(qtype, 0) + count
+
+    # # 結果をCSVファイルに書き出し
+    # output_dir = "/home/shimada/analysis/output-2025"
+    # os.makedirs(output_dir, exist_ok=True)
+    # output_csv_path = os.path.join(output_dir, f"{year}-{month}-{day}-qtype_ratio.csv")
+
+    # with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(['date', 'subdomain', 'qtype', 'count', 'ratio'])
+
+    #     for subdom, qtype_counts in daily_subdomain_qtype_counts.items():
+    #         total_queries_for_subdom = sum(qtype_counts.values())
+    #         for qtype, count in qtype_counts.items():
+    #             ratio = count / total_queries_for_subdom if total_queries_for_subdom > 0 else 0
+    #             writer.writerow([f"{year}-{month}-{day}", subdom, qtype, count, f"{ratio:.4f}"])
+
+    # print(f"Qtype ratio analysis for {year}-{month}-{day} completed and saved to {output_csv_path}")

@@ -24,9 +24,9 @@ if __name__ == "__main__":
             print(month+day+hour)
 
             df = func.open_reader(year, month, day, hour)
-            func.count_query(df, dom_dic)
+            func.analyze_qtype_ratio(df, year, month, day)
         dom_dic = sorted(dom_dic.items(), key=lambda item: item[1], reverse=True)
     # csvへの書き込み
     # funcで作成
-        file_path = f"/home/shimada/analysis/output-2025/{year}-{month}-{day}.csv"
-        func.write_csv(dom_dic, year, month, day)
+        # file_path = f"/home/shimada/analysis/output-2025/{year}-{month}-{day}.csv"
+        # func.write_csv(dom_dic, year, month, day)
