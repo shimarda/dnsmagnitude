@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import re
 import glob
+import statistics
 
 def file_lst(year, month, day):
     path = "/mnt/qnap2/shimada/input/*.csv"
@@ -63,40 +64,114 @@ def write_csv(dic, year, month, day):
     csv_file_path = f"/home/shimada/analysis/output-2025/{year}-{month}-{day}.csv"
     with open(csv_file_path, "w", newline='') as f:
         writer = csv.writer(f, delimiter=',')
-        writer.writerow(['day', 'domain', 'dnsmagnitude'])
+        writer.writerow(['day', 'domain', 'count'])
         for subdom, c in dic:
             writer.writerow([f"{day}", subdom, c])
 
 
-def analyze_qtype_ratio(df, year, month, day):
+def cal_average(dom_dic, total_dic, file_lst):
+    all_dom_set = set()
+    for dom in dom_dic:
+        total_dic[dom] = list()
+    
 
-    # サブドメインの抽出
-    df['subdom'] = df['dns.qry.name'].apply(extract_subdomain)
-    df_sub = df[df['subdom'].notnull()]
+    for file in file_lst:
+        df = pd.read_csv(file)
+        domain_to_val = dict(zip(df['domain'], df['count']))
 
-    subdomain_qtype_counts_hourly = df_sub.groupby(['subdom', 'dns.qry.type']).size().reset_index(name='count')
-    for _, row in subdomain_qtype_counts_hourly.iterrows():
-        subdom = row['subdom']
-        qtype = row['dns.qry.type']
-        count = row['count']
-        daily_subdomain_qtype_counts = dict()
-        if subdom not in daily_subdomain_qtype_counts:
-            daily_subdomain_qtype_counts[subdom] = {}
-        daily_subdomain_qtype_counts[subdom][qtype] = daily_subdomain_qtype_counts[subdom].get(qtype, 0) + count
+        for dom in all_dom_set:
+            if dom in domain_to_val:
+                total_dic[dom].append(float(domain_to_val[dom]))
+            else:
+                total_dic[dom].append(0.0)
+    
+    ave_dic = {dom: statistics.mean(vals) for dom, vals in total_dic.items()}
+    ave_dic = dict(sorted(ave_dic.items(), key=lambda item: item[1], reverse=True))
 
-    # # 結果をCSVファイルに書き出し
-    # output_dir = "/home/shimada/analysis/output-2025"
-    # os.makedirs(output_dir, exist_ok=True)
-    # output_csv_path = os.path.join(output_dir, f"{year}-{month}-{day}-qtype_ratio.csv")
+    return ave_dic
 
-    # with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow(['date', 'subdomain', 'qtype', 'count', 'ratio'])
+def qtype_ratio(year_pattern, month_pattern, day_pattern):
 
-    #     for subdom, qtype_counts in daily_subdomain_qtype_counts.items():
-    #         total_queries_for_subdom = sum(qtype_counts.values())
-    #         for qtype, count in qtype_counts.items():
-    #             ratio = count / total_queries_for_subdom if total_queries_for_subdom > 0 else 0
-    #             writer.writerow([f"{year}-{month}-{day}", subdom, qtype, count, f"{ratio:.4f}"])
+    all_files = file_lst(year_pattern, month_pattern, day_pattern)
+    if not all_files:
+        print(f"Warning: No files found for the given patterns (Y:{year_pattern}, M:{month_pattern}, D:{day_pattern}). Skipping analysis.")
+        return
 
-    # print(f"Qtype ratio analysis for {year}-{month}-{day} completed and saved to {output_csv_path}")
+    # ファイルリストから日付（YYYY-MM-DD）を抽出し、ユニークな日付のリストを作成
+    unique_dates = sorted(list(set([os.path.basename(f)[:10] for f in all_files]))) # 'YYYY-MM-DD'形式
+
+    for date_str in unique_dates:
+        current_year = date_str[:4]
+        current_month = date_str[5:7]
+        current_day = date_str[8:10]
+
+        daily_subdomain_qtype_counts = {} # 各日ごとの集計辞書を初期化
+
+        # この日付に該当するファイルのみを抽出
+        daily_files = [f for f in all_files if os.path.basename(f).startswith(date_str)]
+        daily_hours = sorted(list(set([os.path.basename(f)[11:13] for f in daily_files]))) # ユニークな時間リスト
+
+        if not daily_hours:
+            print(f"No hourly data found for {date_str}. Skipping this date.")
+            continue
+
+        for hour_str in daily_hours:
+            # print(f"  Processing hour: {hour_str}") # デバッグ用
+            df = open_reader(current_year, current_month, current_day, hour_str)
+            if df.empty:
+                continue
+
+            df['subdom'] = df['dns.qry.name'].apply(extract_subdomain)
+            
+            # dns.qry.type と subdom の両方が null でない行のみをフィルタリングし、文字列として正規化
+            df_sub_filtered = df[df['subdom'].notnull() & df['dns.qry.type'].notnull()].copy() # SettingWithCopyWarning回避のため.copy()
+
+            # subdom と dns.qry.type の値を正規化 (前後の空白を除去)
+            df_sub_filtered['subdom'] = df_sub_filtered['subdom'].astype(str).str.strip()
+            df_sub_filtered['dns.qry.type'] = df_sub_filtered['dns.qry.type'].astype(str).str.strip()
+
+            if df_sub_filtered.empty:
+                continue
+
+            # サブドメインとqtypeでグループ化し、カウント
+            subdomain_qtype_counts_hourly = df_sub_filtered.groupby(['subdom', 'dns.qry.type']).size().reset_index(name='count')
+
+            # 時間ごとの集計結果を日ごとの集計辞書に累積加算
+            for _, row in subdomain_qtype_counts_hourly.iterrows():
+                subdom = row['subdom']
+                qtype = row['dns.qry.type']
+                count = row['count']
+
+                if subdom not in daily_subdomain_qtype_counts:
+                    daily_subdomain_qtype_counts[subdom] = {}
+                daily_subdomain_qtype_counts[subdom][qtype] = daily_subdomain_qtype_counts[subdom].get(qtype, 0) + count
+
+        # 日ごとの結果をCSVファイルに書き出し
+        output_dir = "/home/shimada/analysis/output-2025"
+        os.makedirs(output_dir, exist_ok=True)
+        output_csv_path = os.path.join(output_dir, f"{date_str}-qtype_ratio.csv")
+
+        # デバッグ用: 集計後の daily_subdomain_qtype_counts の内容を確認
+        # print(f"\nDEBUG: Final daily_subdomain_qtype_counts for {date_str}:")
+        # for subdom, qtype_counts_dict in daily_subdomain_qtype_counts.items():
+        #     print(f"  Subdomain: {subdom}")
+        #     for qtype, count in qtype_counts_dict.items():
+        #         print(f"    Qtype: {qtype}, Count: {count}")
+        # print("-" * 30)
+
+        with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['date', 'subdomain', 'qtype', 'count', 'ratio'])
+
+            for subdom, qtype_counts in daily_subdomain_qtype_counts.items():
+                total_queries_for_subdom = sum(qtype_counts.values())
+                
+                # qtypeを数値としてソート（文字列の場合もあるので文字列としてソート）
+                sorted_qtypes = sorted(qtype_counts.keys())
+
+                for qtype in sorted_qtypes:
+                    count = qtype_counts[qtype]
+                    ratio = count / total_queries_for_subdom if total_queries_for_subdom > 0 else 0
+                    writer.writerow([date_str, subdom, qtype, count, f"{ratio:.4f}"])
+
+        print(f"Qtype ratio analysis for {date_str} completed and saved to {output_csv_path}")

@@ -71,6 +71,8 @@ def extract_subdomain(qname):
     return None
 
 if __name__ == "__main__":
+    """IPアドレスの数を計算する
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('-y', help='year', required=True)
     parser.add_argument('-m', help='month', required=True)
