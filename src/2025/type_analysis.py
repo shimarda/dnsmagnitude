@@ -7,14 +7,16 @@ if __name__ == "__main__":
     parser.add_argument('-y', help='year')
     parser.add_argument('-m', help='month')
     parser.add_argument('-d', help='day')
+    parser.add_argument('-w', help='0なら権威 1ならリゾルバ')
 
     args = parser.parse_args()
 
     year = args.y
     month = args.m
     day = args.d
+    where = args.w
 
-    lst = func.file_lst(year, month, day)
+    lst = func.file_lst(year, month, day, where)
     file_dic = func.file_time(lst)
 
     for day in file_dic.keys():
@@ -26,7 +28,4 @@ if __name__ == "__main__":
             df = func.open_reader(year, month, day, hour)
             func.qtype_ratio(year, month, day)
         dom_dic = sorted(dom_dic.items(), key=lambda item: item[1], reverse=True)
-    # csvへの書き込み
-    # funcで作成
-        # file_path = f"/home/shimada/analysis/output-2025/{year}-{month}-{day}.csv"
-        # func.write_csv(dom_dic, year, month, day)
+    

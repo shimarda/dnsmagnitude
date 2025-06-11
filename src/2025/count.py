@@ -7,14 +7,16 @@ if __name__ == "__main__":
     parser.add_argument('-y', help='year')
     parser.add_argument('-m', help='month')
     parser.add_argument('-d', help='day')
+    parser.add_argument('-w', help='0なら権威 1ならリゾルバ')
 
     args = parser.parse_args()
 
     year = args.y
     month = args.m
     day = args.d
+    where = args.w
 
-    lst = func.file_lst(year, month, day)
+    lst = func.file_lst(year, month, day, where)
     file_dic = func.file_time(lst)
 
     for day in file_dic.keys():

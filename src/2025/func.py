@@ -7,8 +7,11 @@ import re
 import glob
 import statistics
 
-def file_lst(year, month, day):
-    path = "/mnt/qnap2/shimada/input/*.csv"
+def file_lst(year, month, day, where):
+    if int(where) == 0:
+        path = "/mnt/qnap2/shimada/input/*.csv"
+    else:
+        path = "/mnt/qnap2/shimada/resolver/*.csv"
     pat = re.compile(rf"{year}-{month}-{day}-\d{{2}}\.csv")
     files = sorted(glob.glob(path))
     filtered_files = [file for file in files if pat.match(os.path.basename(file))]
@@ -150,14 +153,6 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern):
         output_dir = "/home/shimada/analysis/output-2025"
         os.makedirs(output_dir, exist_ok=True)
         output_csv_path = os.path.join(output_dir, f"{date_str}-qtype_ratio.csv")
-
-        # デバッグ用: 集計後の daily_subdomain_qtype_counts の内容を確認
-        # print(f"\nDEBUG: Final daily_subdomain_qtype_counts for {date_str}:")
-        # for subdom, qtype_counts_dict in daily_subdomain_qtype_counts.items():
-        #     print(f"  Subdomain: {subdom}")
-        #     for qtype, count in qtype_counts_dict.items():
-        #         print(f"    Qtype: {qtype}, Count: {count}")
-        # print("-" * 30)
 
         with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
