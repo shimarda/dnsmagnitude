@@ -8,16 +8,22 @@ import operator
 import argparse
 
 # ファイル名からファイルを開く
-def open_reader(file_name):
+def open_reader(file_name, where):
     # 権威
-    file_path = f"/mnt/qnap2/shimada/input/{file_name}"
+    if where == 0:
+        file_path = f"/mnt/qnap2/shimada/input/{file_name}"
+    else:
+        file_path = f"/mnt/qnap2/shimada/resolver/{file_name}"
     df = pd.read_csv(file_path)
     return df
 
 # パターンに合うファイル名リスト
-def file_lst(year, month, day):
+def file_lst(year, month, day, where):
     # 権威側
-    path = "/mnt/qnap2/shimada/input/*.csv"
+    if where == 0:
+        path = "/mnt/qnap2/shimada/input/*.csv"
+    else:
+        path = "/mnt/qnap2/shimada/resolver/*.csv"
     pattern = re.compile(rf"{year}-{month}-{day}-\d{{2}}\.csv")
     files = sorted(glob.glob(path))
     filtered_files = [file for file in files if pattern.match(os.path.basename(file))]
@@ -65,14 +71,16 @@ if __name__ == "__main__":
     parser.add_argument('-y', help='year')
     parser.add_argument('-m', help='month')
     parser.add_argument('-d', help='day')
+    parser.add_argument('-w', help='0は権威1はリゾルバ')
     args = parser.parse_args()
 
     year = args.y
     month = args.m
     day = args.d
+    where = int(args.w)
 
     # パターンにあうファイルの時間をリストへ
-    r = file_lst(year, month, day)
+    r = file_lst(year, month, day, where)
     time_lst = file_time(r)
     # keyに日にち、値に時間
     file_dict = {}
@@ -96,7 +104,7 @@ if __name__ == "__main__":
             print(month + day + hour)
             # データフレームを読み込む
             input_file_name = f"{year}-{month}-{day}-{hour}.csv"
-            df = open_reader(input_file_name)
+            df = open_reader(input_file_name, where)
 
             # 'ip.dst' のユニークなセットを更新（A_total）
             uni_src_set.update(df['ip.dst'].unique())
@@ -131,7 +139,7 @@ if __name__ == "__main__":
         mag_dict = dict(sorted(magnitude_dict.items(), key=lambda item: item[1], reverse=True))
 
         # 結果をCSVファイルに書き込む
-        csv_file_path = f"/home/shimada/analysis/output/{year}-{month}-{day}.csv"
+        csv_file_path = f"/home/shimada/analysis/output/{where}-{year}-{month}-{day}.csv"
         with open(csv_file_path, "w", newline='') as f:
             writer = csv.writer(f, delimiter=',')
             writer.writerow(['day', 'domain', 'dnsmagnitude'])
