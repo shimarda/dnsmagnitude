@@ -10,8 +10,10 @@ import statistics
 def file_lst(year, month, day, where):
     if int(where) == 0:
         path = "/mnt/qnap2/shimada/input/*.csv"
+        print("権威")
     else:
         path = "/mnt/qnap2/shimada/resolver/*.csv"
+        print("リゾルバ")
     pat = re.compile(rf"{year}-{month}-{day}-\d{{2}}\.csv")
     files = sorted(glob.glob(path))
     filtered_files = [file for file in files if pat.match(os.path.basename(file))]
@@ -34,9 +36,12 @@ def file_time(file_lst):
         file_dic[day].append(hour)
     return file_dic
 
-def open_reader(year, month, day, hour):
+def open_reader(year, month, day, hour, where):
     file_name = f"{year}-{month}-{day}-{hour}.csv"
-    file_path = f"/mnt/qnap2/shimada/input/{file_name}"
+    if int(where) == 0:
+        file_path = f"/mnt/qnap2/shimada/input/{file_name}"
+    else:
+        file_path = f"/mnt/qnap2/shimada/resolver/{file_name}"
     df = pd.read_csv(file_path)
     return df
 
@@ -63,8 +68,8 @@ def count_query(df, domain_dict):
     for dom, c in hourly_counts.items():
         domain_dict[dom] = domain_dict.get(dom, 0) + c
 
-def write_csv(dic, year, month, day):
-    csv_file_path = f"/home/shimada/analysis/output-2025/{year}-{month}-{day}.csv"
+def write_csv(dic, year, month, day, where):
+    csv_file_path = f"/home/shimada/analysis/output-2025/{where}-{year}-{month}-{day}.csv"
     with open(csv_file_path, "w", newline='') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow(['day', 'domain', 'count'])
@@ -93,7 +98,7 @@ def cal_average(dom_dic, total_dic, file_lst):
 
     return ave_dic
 
-def qtype_ratio(year_pattern, month_pattern, day_pattern):
+def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
 
     all_files = file_lst(year_pattern, month_pattern, day_pattern)
     if not all_files:
@@ -152,7 +157,7 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern):
         # 日ごとの結果をCSVファイルに書き出し
         output_dir = "/home/shimada/analysis/output-2025"
         os.makedirs(output_dir, exist_ok=True)
-        output_csv_path = os.path.join(output_dir, f"{date_str}-qtype_ratio.csv")
+        output_csv_path = os.path.join(output_dir, f"{where}-{date_str}-qtype_ratio.csv")
 
         with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
             writer = csv.writer(f)

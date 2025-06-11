@@ -26,6 +26,6 @@ if __name__ == "__main__":
             print(month+day+hour)
 
             df = func.open_reader(year, month, day, hour)
-            func.qtype_ratio(year, month, day)
+            func.qtype_ratio(year, month, day, where)
         dom_dic = sorted(dom_dic.items(), key=lambda item: item[1], reverse=True)
     
