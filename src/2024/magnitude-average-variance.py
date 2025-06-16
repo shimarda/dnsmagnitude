@@ -6,10 +6,11 @@ import pandas as pd
 import re
 import statistics
 
-def FindFile(year, month, day):
+def FindFile(year, month, day, where):
     # dir_path = "/home/shimada/analysis/output/dns_mag/tuika/"
-    dir_path = "/home/shimada/analysis/output/count/"
-    pattern = re.compile(fr"{year}-{month}-{day}\.csv")
+    # dir_path = "/home/shimada/analysis/output/count/"
+    dir_path = "/home/shimada/analysis/output/"
+    pattern = re.compile(fr"{where}-{year}-{month}-{day}\.csv")
     files = sorted(glob.glob(os.path.join(dir_path, "*.csv")))
 
     found_file_list = [file for file in files if pattern.search(os.path.basename(file))]
@@ -25,14 +26,16 @@ if __name__ == "__main__":
     parser.add_argument('-y', help="year", required=True)
     parser.add_argument('-m', help="month", required=True)
     parser.add_argument('-d', help="day", required=True)
+    parser.add_argument('-w', help="where")
 
     args = parser.parse_args()
 
     year = args.y.zfill(4)
     month = args.m.zfill(2)
     day = args.d.zfill(2)
+    where = args.w
 
-    file_list = FindFile(year, month, day)
+    file_list = FindFile(year, month, day, where)
     if not file_list:
         exit()
 
@@ -68,7 +71,7 @@ if __name__ == "__main__":
     distribution_dict = dict(sorted(distribution_dict.items(), key=lambda item: item[1], reverse=True))
 
     # 平均値のCSV出力
-    output_csv = f"/home/shimada/analysis/output/ave-{year}-{month}-{day}.csv"
+    output_csv = f"/home/shimada/analysis/output/ave-{where}-{year}-{month}-{day}.csv"
     with open(output_csv, "w", newline='') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow(['domain', 'average'])
@@ -76,7 +79,7 @@ if __name__ == "__main__":
             writer.writerow([domain, average])
 
     # 分散値のCSV出力
-    output_csv = f"/home/shimada/analysis/output/distr-{year}-{month}-{day}.csv"
+    output_csv = f"/home/shimada/analysis/output/distr-{where}-{year}-{month}-{day}.csv"
     with open(output_csv, "w", newline='') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow(['domain', 'distribution'])
