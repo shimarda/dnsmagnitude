@@ -54,7 +54,7 @@ do
         # 下記は標準エラー出力に実行時間が出るので、ログファイルへリダイレクトする場合は2>>などで対応
         /usr/bin/time -v tshark \
             -r "$input_file" \
-            -Y "(ip.src == 130.158.68.25 or ip.src == 130.158.68.26) and (dns.flags.response == 1) and (dns.flags.authoritative == 0) and (dns.flags.rcode == 0)" \
+            -Y "(ip.src == 130.158.68.25 or ip.src == 130.158.68.26) and (dns.qry.name matches "\.tsukuba\.ac\.jp$") and (dns.flags.response == 1) and (dns.flags.authoritative == 0) and (dns.flags.rcode == 0)" \
             -T fields \
             -e frame.time -e ip.src -e ip.dst -e ipv6.dst -e dns.qry.name -e dns.qry.type \
             -E header=y -E separator=, -E quote=d \

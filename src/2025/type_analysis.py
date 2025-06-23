@@ -1,31 +1,19 @@
 import func
 import argparse
 
-if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
+# メイン処理
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='DNS QType分析')
     parser.add_argument('-y', help='year')
     parser.add_argument('-m', help='month')
     parser.add_argument('-d', help='day')
-    parser.add_argument('-w', help='0なら権威 1ならリゾルバ')
-
+    parser.add_argument('-w', help='0は権威1はリゾルバ')
     args = parser.parse_args()
-
+    
     year = args.y
     month = args.m
     day = args.d
     where = args.w
-
-    lst = func.file_lst(year, month, day, where)
-    file_dic = func.file_time(lst)
-
-    for day in file_dic.keys():
-        dom_dic = dict()
-
-        for hour in file_dic[day]:
-            print(month+day+hour)
-
-            df = func.open_reader(year, month, day, hour)
-            func.qtype_ratio(year, month, day, where)
-        dom_dic = sorted(dom_dic.items(), key=lambda item: item[1], reverse=True)
     
+    func.qtype_ratio(year, month, day, where)
