@@ -100,7 +100,7 @@ def cal_average(dom_dic, total_dic, file_lst):
 
 def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
 
-    all_files = file_lst(year_pattern, month_pattern, day_pattern)
+    all_files = file_lst(year_pattern, month_pattern, day_pattern, where)
     if not all_files:
         print(f"Warning: No files found for the given patterns (Y:{year_pattern}, M:{month_pattern}, D:{day_pattern}). Skipping analysis.")
         return

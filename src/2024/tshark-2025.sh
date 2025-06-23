@@ -60,7 +60,7 @@ do
             -E header=y -E separator=, -E quote=d \
             > "$output_file"
         echo "----- $input_file の処理終了 -----"
-
+        
         # 解凍ファイルを削除（不要な場合）
         rm "$input_file"
         rm "$copied_file"
