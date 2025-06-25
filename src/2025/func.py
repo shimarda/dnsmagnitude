@@ -19,6 +19,29 @@ def file_lst(year, month, day, where):
     filtered_files = [file for file in files if pat.match(os.path.basename(file))]
     return filtered_files
 
+# ファイル名リストから時間のみを抽出
+def file_time(file_lst):
+    time_list = [
+        os.path.basename(f).replace('-', '').replace('.csv', '') for f in file_lst
+    ]
+    return time_list
+
+def count_query(df, domain_dict):
+    df['subdom'] = df['dns.qry.name'].apply(extract_subdomain)
+    df_sub = df[df['subdom'].notnull()]
+    
+    hourly_counts = df_sub['subdom'].value_counts().to_dict()
+    for dom, c in hourly_counts.items():
+        domain_dict[dom] = domain_dict.get(dom, 0) + c
+
+def write_csv(dic, year, month, day, where):
+    csv_file_path = f"/home/shimada/analysis/output-2025/count-{where}-{year}-{month}-{day}.csv"
+    with open(csv_file_path, "w", newline='') as f:
+        writer = csv.writer(f, delimiter=',')
+        writer.writerow(['day', 'domain', 'count'])
+        for subdom, c in dic:
+            writer.writerow([f"{day}", subdom, c])
+
 # 問題のある行を検出する関数
 def detect_problematic_rows(file_path, column_index=5):
     """

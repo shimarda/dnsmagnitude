@@ -8,6 +8,8 @@ import operator
 import argparse
 import io
 
+import func
+
 # ファイル名からファイルを開く（エラー行の出力を追加）
 def open_reader(file_name, where):
     # 権威
@@ -65,26 +67,6 @@ def open_reader(file_name, where):
             
         return df, error_lines
 
-
-# パターンに合うファイル名リスト
-def file_lst(year, month, day, where):
-    # 権威側
-    if where == 0:
-        path = "/mnt/qnap2/shimada/input/*.csv"
-    else:
-        path = "/mnt/qnap2/shimada/resolver/*.csv"
-    pattern = re.compile(rf"{year}-{month}-{day}-\d{{2}}\.csv")
-    files = sorted(glob.glob(path))
-    filtered_files = [file for file in files if pattern.match(os.path.basename(file))]
-    return filtered_files
-
-# ファイル名リストから時間のみを抽出
-def file_time(file_lst):
-    time_list = [
-        os.path.basename(f).replace('-', '').replace('.csv', '') for f in file_lst
-    ]
-    return time_list
-
 # サブドメインを抽出する関数
 def extract_subdomain(qname):
     suffix = '.tsukuba.ac.jp'
@@ -123,8 +105,8 @@ if __name__ == "__main__":
     error_log_file = args.o
 
     # パターンにあうファイルの時間をリストへ
-    r = file_lst(year, month, day, where)
-    time_lst = file_time(r)
+    r = func.file_lst(year, month, day, where)
+    time_lst = func.file_time(r)
     # keyに日にち、値に時間
     file_dict = {}
 
@@ -150,8 +132,8 @@ if __name__ == "__main__":
         for hour in file_dict[day]:
             print(month + day + hour)
             # データフレームを読み込む
-            input_file_name = f"{year}-{month}-{day}-{hour}.csv"
-            df, error_lines = open_reader(input_file_name, where)
+            input_file_name = f"{year}-{month}-{day}.csv"
+            df, error_lines = func.open_reader_safe(year, month, day, where)
             
             # エラー行の処理
             if error_lines:
