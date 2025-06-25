@@ -215,7 +215,7 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
                 daily_subdomain_qtype_counts[subdom][qtype] = daily_subdomain_qtype_counts[subdom].get(qtype, 0) + count
         
         # 日ごとの結果をCSVファイルに書き出し
-        output_dir = "/home/shimada/analysis/output-2025"
+        output_dir = "/home/shimada/analysis/output-2025/qtype/"
         os.makedirs(output_dir, exist_ok=True)
         output_csv_path = os.path.join(output_dir, f"qtype-{where}-{date_str}.csv")
         
