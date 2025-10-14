@@ -1,0 +1,6 @@
+Row,Reason,Content
+65135,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 28, 2025 19:20:15.209559000 UTC,130.158.68.21,93.93.128.6,,azami.cc.tsukuba.ac.jp,azami.cc.tsukuba.ac.jp,1,28"
+65136,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 28, 2025 19:20:15.210355000 UTC,130.158.68.21,46.235.230.124,,azami.cc.tsukuba.ac.jp,azami.cc.tsukuba.ac.jp,1,28"
+65137,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 28, 2025 19:20:15.224181000 UTC,130.158.68.21,46.235.231.114,,azami.cc.tsukuba.ac.jp,azami.cc.tsukuba.ac.jp,1,28"
+65143,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 28, 2025 19:20:15.381995000 UTC,130.158.68.21,159.69.108.193,,azami.cc.tsukuba.ac.jp,azami.cc.tsukuba.ac.jp,1,28"
+65147,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 28, 2025 19:20:15.432652000 UTC,130.158.68.21,95.216.219.126,,azami.cc.tsukuba.ac.jp,azami.cc.tsukuba.ac.jp,1,28"

@@ -177,7 +177,7 @@ if __name__ == "__main__":
 
         # マグニチュードの降順でソート
         mag_dict = dict(sorted(magnitude_dict.items(), key=lambda item: item[1], reverse=True))
-
+        
         # 結果をCSVファイルに書き込む
         csv_file_path = f"/home/shimada/analysis/output/{where}-{year}-{month}-{day}.csv"
         with open(csv_file_path, "w", newline='') as f:

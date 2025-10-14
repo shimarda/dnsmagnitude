@@ -1,0 +1,3 @@
+Row,Reason,Content
+211060,"型の不一致: 期待=numeric, 実際=string, 値=2,2,2","Apr 22, 2025 05:34:13.178772000 UTC,130.158.71.54,87.255.36.45,,cc.TSUKuBa.ac.JP,132.51.133.in-addR.ArpA,133.51.133.In-AddR.aRPa,2,2,2"
+211159,"型の不一致: 期待=numeric, 実際=string, 値=12,28","Apr 22, 2025 05:34:14.869896000 UTC,130.158.71.54,87.255.36.45,,143.130.51.133.In-ADDR.arpA,KASUmi.cC.tSUKuBA.aC.Jp,12,28"

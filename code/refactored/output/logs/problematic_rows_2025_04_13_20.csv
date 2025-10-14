@@ -1,0 +1,11 @@
+Row,Reason,Content
+39839,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 11:11:45.174297000 UTC,130.158.68.21,3.101.230.198,,13351064171.ap.cc.tsukuba.ac.jp,13351064171.ap.cc.tsukuba.ac.jp,1,28"
+58009,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 11:17:24.949010000 UTC,130.158.68.21,3.101.240.127,,13351080123.ap.cc.tsukuba.ac.jp,13351080123.ap.cc.tsukuba.ac.jp,1,28"
+70232,"型の不一致: 期待=numeric, 実際=string, 値=15,16","Apr 13, 2025 11:21:06.354616000 UTC,130.158.71.54,3.101.230.205,,13351086105.ap.cc.tsukuba.ac.jp,13351086105.ap.cc.tsukuba.ac.jp,15,16"
+74283,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 11:22:17.884247000 UTC,130.158.68.21,3.101.230.162,,13351100106.ap.cc.tsukuba.ac.jp,13351100106.ap.cc.tsukuba.ac.jp,1,28"
+90230,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 11:26:45.253971000 UTC,130.158.68.21,3.101.240.57,,dora.bk.tsukuba.ac.jp,dora.bk.tsukuba.ac.jp,1,28"
+100298,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr 13, 2025 11:29:44.733841000 UTC,130.158.71.54,3.101.230.198,,ga203-pc008.u.tsukuba.ac.jp,ga203-pc008.u.tsukuba.ac.jp,ga203-pc008.u.tsukuba.ac.jp,16,1,28"
+104081,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 11:30:47.996308000 UTC,130.158.68.21,3.101.240.125,,13351091011.ap.cc.tsukuba.ac.jp,13351091011.ap.cc.tsukuba.ac.jp,1,28"
+114841,"型の不一致: 期待=numeric, 実際=string, 値=16,1","Apr 13, 2025 11:34:03.068442000 UTC,130.158.71.54,3.101.226.128,,dhcp133127.taiiku.tsukuba.ac.jp,dhcp133127.taiiku.tsukuba.ac.jp,16,1"
+115219,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 11:34:08.596428000 UTC,130.158.68.21,3.101.226.128,,13351116045.ap.cc.tsukuba.ac.jp,13351116045.ap.cc.tsukuba.ac.jp,1,28"
+165174,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 11:48:49.040778000 UTC,130.158.68.21,3.101.240.125,,13351097058.ap.cc.tsukuba.ac.jp,13351097058.ap.cc.tsukuba.ac.jp,1,28"

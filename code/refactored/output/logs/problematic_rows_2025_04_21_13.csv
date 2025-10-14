@@ -1,0 +1,13 @@
+Row,Reason,Content
+11592,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 21, 2025 04:02:10.354919000 UTC,130.158.68.21,3.101.240.52,,13351119208.ap.cc.tsukuba.ac.jp,13351119208.ap.cc.tsukuba.ac.jp,16,255"
+14943,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 21, 2025 04:02:52.589280000 UTC,130.158.68.21,3.101.240.38,,dhcp179038.taiiku.otsuka.tsukuba.ac.jp,dhcp179038.taiiku.otsuka.tsukuba.ac.jp,16,255"
+24042,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 21, 2025 04:04:54.455827000 UTC,130.158.68.21,3.101.226.173,,13351089118.ap.cc.tsukuba.ac.jp,13351089118.ap.cc.tsukuba.ac.jp,16,255"
+28039,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 21, 2025 04:05:43.393800000 UTC,130.158.68.21,3.101.240.134,,13351089044.ap.cc.tsukuba.ac.jp,13351089044.ap.cc.tsukuba.ac.jp,16,255"
+35632,"型の不一致: 期待=numeric, 実際=string, 値=15,255","Apr 21, 2025 04:07:14.971678000 UTC,130.158.71.54,3.101.240.107,,chem.tsukuba.ac.jp,chem.tsukuba.ac.jp,15,255"
+43445,"型の不一致: 期待=numeric, 実際=string, 値=15,16,255","Apr 21, 2025 04:08:45.790738000 UTC,130.158.68.21,3.101.239.95,,13351113144.ap.cc.tsukuba.ac.jp,13351113144.ap.cc.tsukuba.ac.jp,13351113144.ap.cc.tsukuba.ac.jp,15,16,255"
+44118,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 21, 2025 04:08:53.368919000 UTC,130.158.68.21,3.101.226.182,,astor005.tulips.tsukuba.ac.jp,astor005.tulips.tsukuba.ac.jp,16,255"
+44252,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 21, 2025 04:08:55.221562000 UTC,130.158.68.21,3.101.230.240,,dhcp219-161.slis.tsukuba.ac.jp,dhcp219-161.slis.tsukuba.ac.jp,16,255"
+45637,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 21, 2025 04:09:15.534474000 UTC,130.158.68.21,3.101.240.52,,13351089125.ap.cc.tsukuba.ac.jp,13351089125.ap.cc.tsukuba.ac.jp,16,255"
+129348,"型の不一致: 期待=numeric, 実際=string, 値=15,255","Apr 21, 2025 04:26:45.146026000 UTC,130.158.68.21,3.101.226.149,,dhcp221-152.slis.tsukuba.ac.jp,dhcp221-152.slis.tsukuba.ac.jp,15,255"
+161846,"型の不一致: 期待=numeric, 実際=string, 値=15,16,255","Apr 21, 2025 04:33:10.612914000 UTC,130.158.68.21,3.101.226.182,,13351090213.ap.cc.tsukuba.ac.jp,13351090213.ap.cc.tsukuba.ac.jp,13351090213.ap.cc.tsukuba.ac.jp,15,16,255"
+168909,"型の不一致: 期待=numeric, 実際=string, 値=1,255","Apr 21, 2025 04:34:32.064157000 UTC,130.158.71.54,3.101.240.107,,azami.cc.tsukuba.ac.jp,13351082129.ap.cc.tsukuba.ac.jp,1,255"

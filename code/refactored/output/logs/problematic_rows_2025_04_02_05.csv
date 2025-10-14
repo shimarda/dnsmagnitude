@@ -1,0 +1,9 @@
+Row,Reason,Content
+17563,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  1, 2025 20:07:14.783285000 UTC,130.158.68.21,44.210.119.79,,13351088105.ap.cc.tsukuba.ac.jp,13351088105.ap.cc.tsukuba.ac.jp,1,28"
+20104,"型の不一致: 期待=numeric, 実際=string, 値=16,28","Apr  1, 2025 20:08:12.265859000 UTC,130.158.68.20,44.210.119.74,,kayser8.tulips.tsukuba.ac.jp,kayser8.tulips.tsukuba.ac.jp,16,28"
+43451,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr  1, 2025 20:18:00.227458000 UTC,130.158.68.21,44.210.119.79,,13351085022.ap.cc.tsukuba.ac.jp,13351085022.ap.cc.tsukuba.ac.jp,13351085022.ap.cc.tsukuba.ac.jp,16,1,28"
+56363,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  1, 2025 20:23:24.096167000 UTC,130.158.71.54,44.210.119.79,,13351073062.ap.cc.tsukuba.ac.jp,13351073062.ap.cc.tsukuba.ac.jp,1,28"
+70649,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  1, 2025 20:29:31.221234000 UTC,130.158.71.54,44.210.119.79,,13351077155.ap.cc.tsukuba.ac.jp,13351077155.ap.cc.tsukuba.ac.jp,1,28"
+98098,"型の不一致: 期待=numeric, 実際=string, 値=16,1","Apr  1, 2025 20:40:34.443958000 UTC,130.158.68.20,44.210.119.66,,13351081087.ap.cc.tsukuba.ac.jp,13351081087.ap.cc.tsukuba.ac.jp,16,1"
+104557,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr  1, 2025 20:43:15.486349000 UTC,130.158.71.54,44.210.119.85,,alignment-education.whowp03.cc.tsukuba.ac.jp,alignment-education.whowp03.cc.tsukuba.ac.jp,alignment-education.whowp03.cc.tsukuba.ac.jp,16,1,28"
+127488,"型の不一致: 期待=numeric, 実際=string, 値=16,1","Apr  1, 2025 20:52:23.509047000 UTC,130.158.71.54,44.210.119.95,,2d202-p015.u.tsukuba.ac.jp,2d202-p015.u.tsukuba.ac.jp,16,1"

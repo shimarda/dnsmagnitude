@@ -1,0 +1,9 @@
+Row,Reason,Content
+3594,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  2, 2025 19:01:13.315742000 UTC,130.158.71.54,44.210.119.92,,yamasiro.ri-center.tsukuba.ac.jp,yamasiro.ri-center.tsukuba.ac.jp,1,28"
+58153,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  2, 2025 19:22:53.713397000 UTC,130.158.71.54,44.210.119.80,,13351091085.ap.cc.tsukuba.ac.jp,13351091085.ap.cc.tsukuba.ac.jp,1,28"
+64308,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  2, 2025 19:25:18.407731000 UTC,130.158.71.54,44.210.119.92,,13351064209.ap.cc.tsukuba.ac.jp,13351064209.ap.cc.tsukuba.ac.jp,1,28"
+72533,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  2, 2025 19:28:31.012855000 UTC,130.158.68.21,44.210.119.82,,13351092099.ap.cc.tsukuba.ac.jp,13351092099.ap.cc.tsukuba.ac.jp,1,28"
+80140,"型の不一致: 期待=numeric, 実際=string, 値=16,28","Apr  2, 2025 19:31:37.124874000 UTC,130.158.71.54,44.210.119.73,,router.suiri.tsukuba.ac.jp,router.suiri.tsukuba.ac.jp,16,28"
+88005,"型の不一致: 期待=numeric, 実際=string, 値=16,28","Apr  2, 2025 19:34:35.955181000 UTC,130.158.71.54,44.210.119.92,,dhcp219-78.slis.tsukuba.ac.jp,dhcp219-78.slis.tsukuba.ac.jp,16,28"
+104873,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  2, 2025 19:41:48.982331000 UTC,130.158.71.54,44.210.119.92,,13351073107.ap.cc.tsukuba.ac.jp,13351073107.ap.cc.tsukuba.ac.jp,1,28"
+165772,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr  2, 2025 19:59:56.538264000 UTC,130.158.71.54,44.210.119.92,,2d202-p085.u.tsukuba.ac.jp,2d202-p085.u.tsukuba.ac.jp,2d202-p085.u.tsukuba.ac.jp,16,1,28"

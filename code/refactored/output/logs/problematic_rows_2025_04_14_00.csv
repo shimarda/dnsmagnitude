@@ -1,0 +1,12 @@
+Row,Reason,Content
+3822,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 15:00:51.258874000 UTC,130.158.71.54,3.101.216.121,,4.251.tc.tsukuba.ac.jp,4.251.tc.tsukuba.ac.jp,1,28"
+6450,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 15:01:40.878804000 UTC,130.158.68.21,3.101.240.141,,13351119210.ap.cc.tsukuba.ac.jp,13351119210.ap.cc.tsukuba.ac.jp,1,28"
+12982,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr 13, 2025 15:03:40.827307000 UTC,130.158.71.54,3.101.240.141,,13351199125.guest.cc.tsukuba.ac.jp,13351199125.guest.cc.tsukuba.ac.jp,13351199125.guest.cc.tsukuba.ac.jp,16,1,28"
+14695,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 15:04:09.770265000 UTC,130.158.68.21,3.101.230.171,,dhcp218-115.slis.tsukuba.ac.jp,dhcp218-115.slis.tsukuba.ac.jp,1,28"
+37474,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 15:11:42.188347000 UTC,130.158.71.54,3.101.240.55,,13351079041.ap.cc.tsukuba.ac.jp,13351079041.ap.cc.tsukuba.ac.jp,1,28"
+61024,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 15:19:23.442779000 UTC,130.158.68.21,3.101.226.149,,dhcp218-115.slis.tsukuba.ac.jp,dhcp218-115.slis.tsukuba.ac.jp,1,28"
+67575,"型の不一致: 期待=numeric, 実際=string, 値=16,1","Apr 13, 2025 15:21:37.084693000 UTC,130.158.68.21,3.101.230.214,,13351096058.ap.cc.tsukuba.ac.jp,13351096058.ap.cc.tsukuba.ac.jp,16,1"
+70711,"型の不一致: 期待=numeric, 実際=string, 値=16,28","Apr 13, 2025 15:22:44.752401000 UTC,130.158.68.21,3.101.240.131,,13351199037.guest.cc.tsukuba.ac.jp,13351199037.guest.cc.tsukuba.ac.jp,16,28"
+114537,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 15:37:12.193763000 UTC,130.158.68.21,3.101.240.57,,2a304-p036.u.tsukuba.ac.jp,2a304-p036.u.tsukuba.ac.jp,1,28"
+131918,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr 13, 2025 15:43:06.092674000 UTC,130.158.71.54,3.101.226.128,,13351076001.ap.cc.tsukuba.ac.jp,13351076001.ap.cc.tsukuba.ac.jp,13351076001.ap.cc.tsukuba.ac.jp,16,1,28"
+159900,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr 13, 2025 15:52:31.159719000 UTC,130.158.68.21,3.101.216.121,,13351071093.ap.cc.tsukuba.ac.jp,13351071093.ap.cc.tsukuba.ac.jp,1,28"

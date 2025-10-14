@@ -259,3 +259,221 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
         
         print(f"Qtype ratio analysis for {date_str} completed and saved to {output_csv_path}")
 
+def qtype_ratio_total(year_pattern, month_pattern, day_pattern, where):
+    """
+    対象期間全体のトラフィックでqtypeの比率を計算する関数
+    
+    Args:
+        year_pattern: 年のパターン（例: "2025"）
+        month_pattern: 月のパターン（例: "01"）
+        day_pattern: 日のパターン（例: "15"）
+        where: 0=権威サーバー、1=リゾルバー
+    """
+    all_files = file_lst(year_pattern, month_pattern, day_pattern, where)
+    if not all_files:
+        print(f"Warning: No files found for the given patterns (Y:{year_pattern}, M:{month_pattern}, D:{day_pattern}). Skipping analysis.")
+        return
+
+    # 全期間の集計用辞書
+    total_qtype_counts = {}
+    
+    # ファイルリストから日付（YYYY-MM-DD）を抽出し、ユニークな日付のリストを作成
+    unique_dates = sorted(list(set([os.path.basename(f)[:10] for f in all_files])))
+    
+    print(f"Processing {len(unique_dates)} unique dates...")
+    
+    for date_str in unique_dates:
+        current_year = date_str[:4]
+        current_month = date_str[5:7]
+        current_day = date_str[8:10]
+        
+        # この日付に該当するファイルのみを抽出
+        daily_files = [f for f in all_files if os.path.basename(f).startswith(date_str)]
+        daily_hours = sorted(list(set([os.path.basename(f)[11:13] for f in daily_files])))
+        
+        if not daily_hours:
+            print(f"No hourly data found for {date_str}. Skipping this date.")
+            continue
+        
+        for hour_str in daily_hours:
+            print(f"処理中: {date_str} {hour_str}:00")
+            df = open_reader_safe(current_year, current_month, current_day, hour_str, where)
+            if df.empty:
+                continue
+            
+            # サブドメイン抽出前に型確認
+            print(f"dns.qry.name の型: {df['dns.qry.name'].dtype}")
+            print(f"dns.qry.type の型: {df['dns.qry.type'].dtype}")
+            
+            # 非文字列データの確認
+            non_str_qname = df[~df['dns.qry.name'].apply(lambda x: isinstance(x, str))]
+            if not non_str_qname.empty:
+                print(f"文字列でない dns.qry.name の値: {len(non_str_qname)} 件")
+                print(non_str_qname['dns.qry.name'].head())
+            
+            # サブドメイン抽出（NaN や非文字列値を安全に処理）
+            df['subdom'] = df['dns.qry.name'].apply(lambda x: extract_subdomain(x) if pd.notnull(x) else None)
+            
+            # dns.qry.type と subdom の両方が null でない行のみをフィルタリング
+            df_sub_filtered = df[df['subdom'].notnull() & df['dns.qry.type'].notnull()].copy()
+            
+            if df_sub_filtered.empty:
+                print(f"  有効なデータなし: {date_str} {hour_str}")
+                continue
+            
+            # 文字列として正規化
+            df_sub_filtered['dns.qry.type'] = df_sub_filtered['dns.qry.type'].astype(str).str.strip()
+            
+            # qtypeでグループ化し、カウント（サブドメイン関係なく全体で集計）
+            qtype_counts_hourly = df_sub_filtered['dns.qry.type'].value_counts().to_dict()
+            
+            # 時間ごとの集計結果を全体の集計辞書に累積加算
+            for qtype, count in qtype_counts_hourly.items():
+                total_qtype_counts[qtype] = total_qtype_counts.get(qtype, 0) + count
+    
+    # 結果をCSVファイルに書き出し
+    output_dir = "/home/shimada/analysis/output-2025/qtype/"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 期間の表現を作成
+    period_str = f"{year_pattern}-{month_pattern}-{day_pattern}"
+    output_csv_path = os.path.join(output_dir, f"qtype-total-{where}-{period_str}.csv")
+    
+    # 総クエリ数を計算
+    total_queries = sum(total_qtype_counts.values())
+    
+    if total_queries == 0:
+        print("No valid queries found in the specified period.")
+        return
+    
+    with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['period', 'qtype', 'count', 'ratio'])
+        
+        # qtypeを数値としてソート（文字列の場合もあるので文字列としてソート）
+        sorted_qtypes = sorted(total_qtype_counts.keys())
+        
+        for qtype in sorted_qtypes:
+            count = total_qtype_counts[qtype]
+            ratio = count / total_queries
+            writer.writerow([period_str, qtype, count, f"{ratio:.6f}"])
+    
+    print(f"Total qtype ratio analysis for period {period_str} completed.")
+    print(f"Total queries processed: {total_queries:,}")
+    print(f"Results saved to: {output_csv_path}")
+    
+    # 上位qtypeの簡単な統計を表示
+    sorted_by_count = sorted(total_qtype_counts.items(), key=lambda x: x[1], reverse=True)
+    print("\n上位10のqtype:")
+    for i, (qtype, count) in enumerate(sorted_by_count[:10], 1):
+        ratio = count / total_queries
+        print(f"{i:2d}. {qtype:>6s}: {count:>10,} ({ratio:6.2%})")
+
+
+def qtype_ratio_total_by_date_range(start_date, end_date, where):
+    """
+    日付範囲を指定して全期間のqtype比率を計算する関数
+    
+    Args:
+        start_date: 開始日（例: "2025-01-01"）
+        end_date: 終了日（例: "2025-01-31"）
+        where: 0=権威サーバー、1=リゾルバー
+    """
+    from datetime import datetime, timedelta
+    
+    # 日付文字列をdatetimeオブジェクトに変換
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    
+    # 全期間の集計用辞書
+    total_qtype_counts = {}
+    total_processed_files = 0
+    
+    print(f"Processing date range: {start_date} to {end_date}")
+    
+    # 日付範囲内の各日を処理
+    current_dt = start_dt
+    while current_dt <= end_dt:
+        date_str = current_dt.strftime("%Y-%m-%d")
+        year = current_dt.strftime("%Y")
+        month = current_dt.strftime("%m")
+        day = current_dt.strftime("%d")
+        
+        # この日のファイルを取得
+        daily_files = file_lst(year, month, day, where)
+        
+        if not daily_files:
+            print(f"No files found for {date_str}")
+            current_dt += timedelta(days=1)
+            continue
+        
+        # 時間ごとのファイルを処理
+        daily_hours = sorted(list(set([os.path.basename(f)[11:13] for f in daily_files])))
+        
+        for hour_str in daily_hours:
+            print(f"処理中: {date_str} {hour_str}:00")
+            df = open_reader_safe(year, month, day, hour_str, where)
+            if df.empty:
+                continue
+            
+            total_processed_files += 1
+            
+            # サブドメイン抽出
+            df['subdom'] = df['dns.qry.name'].apply(lambda x: extract_subdomain(x) if pd.notnull(x) else None)
+            
+            # 有効なデータをフィルタリング
+            df_sub_filtered = df[df['subdom'].notnull() & df['dns.qry.type'].notnull()].copy()
+            
+            if df_sub_filtered.empty:
+                print(f"  有効なデータなし: {date_str} {hour_str}")
+                continue
+            
+            # 文字列として正規化
+            df_sub_filtered['dns.qry.type'] = df_sub_filtered['dns.qry.type'].astype(str).str.strip()
+            
+            # qtypeでグループ化し、カウント
+            qtype_counts_hourly = df_sub_filtered['dns.qry.type'].value_counts().to_dict()
+            
+            # 全体の集計辞書に累積加算
+            for qtype, count in qtype_counts_hourly.items():
+                total_qtype_counts[qtype] = total_qtype_counts.get(qtype, 0) + count
+        
+        current_dt += timedelta(days=1)
+    
+    # 結果をCSVファイルに書き出し
+    output_dir = "/home/shimada/analysis/output-2025/qtype/"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    period_str = f"{start_date}_to_{end_date}"
+    output_csv_path = os.path.join(output_dir, f"qtype-total-{where}-{period_str}.csv")
+    
+    # 総クエリ数を計算
+    total_queries = sum(total_qtype_counts.values())
+    
+    if total_queries == 0:
+        print("No valid queries found in the specified period.")
+        return
+    
+    with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['period', 'qtype', 'count', 'ratio'])
+        
+        # qtypeを文字列としてソート
+        sorted_qtypes = sorted(total_qtype_counts.keys())
+        
+        for qtype in sorted_qtypes:
+            count = total_qtype_counts[qtype]
+            ratio = count / total_queries
+            writer.writerow([period_str, qtype, count, f"{ratio:.6f}"])
+    
+    print(f"Total qtype ratio analysis for period {period_str} completed.")
+    print(f"Total files processed: {total_processed_files}")
+    print(f"Total queries processed: {total_queries:,}")
+    print(f"Results saved to: {output_csv_path}")
+    
+    # 上位qtypeの統計を表示
+    sorted_by_count = sorted(total_qtype_counts.items(), key=lambda x: x[1], reverse=True)
+    print("\n上位10のqtype:")
+    for i, (qtype, count) in enumerate(sorted_by_count[:10], 1):
+        ratio = count / total_queries
+        print(f"{i:2d}. {qtype:>6s}: {count:>10,} ({ratio:6.2%})")

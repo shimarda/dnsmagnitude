@@ -1,0 +1,6 @@
+Row,Reason,Content
+47358,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  5, 2025 02:14:35.007517000 UTC,130.158.68.21,3.101.230.160,,13351096226.ap.cc.tsukuba.ac.jp,13351096226.ap.cc.tsukuba.ac.jp,1,28"
+65804,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr  5, 2025 02:20:27.858918000 UTC,130.158.68.21,3.101.240.60,,13351064134.ap.cc.tsukuba.ac.jp,13351064134.ap.cc.tsukuba.ac.jp,13351064134.ap.cc.tsukuba.ac.jp,16,1,28"
+118512,"型の不一致: 期待=numeric, 実際=string, 値=1,28","Apr  5, 2025 02:33:58.036127000 UTC,130.158.68.21,3.101.240.43,,13351070018.ap.cc.tsukuba.ac.jp,13351070018.ap.cc.tsukuba.ac.jp,1,28"
+137812,"型の不一致: 期待=numeric, 実際=string, 値=16,1,28","Apr  5, 2025 02:40:15.376709000 UTC,130.158.68.21,3.101.216.124,,4b212-pc153.u.tsukuba.ac.jp,4b212-pc153.u.tsukuba.ac.jp,4b212-pc153.u.tsukuba.ac.jp,16,1,28"
+168508,"型の不一致: 期待=numeric, 実際=string, 値=16,28","Apr  5, 2025 02:50:06.304565000 UTC,130.158.71.54,3.101.240.190,,13351069205.ap.cc.tsukuba.ac.jp,13351069205.ap.cc.tsukuba.ac.jp,16,28"
