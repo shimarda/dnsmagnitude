@@ -1,3 +1,7 @@
+"""
+    複数日のdount-*.csvファイルからドメインごとのクエリ数の平均と分散を計算
+"""
+
 import argparse
 import csv
 import glob

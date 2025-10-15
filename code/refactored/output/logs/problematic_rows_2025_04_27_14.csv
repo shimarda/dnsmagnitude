@@ -1,8 +1,0 @@
-Row,Reason,Content
-23430,"型の不一致: 期待=numeric, 実際=string, 値=15,1","Apr 27, 2025 05:07:11.496566000 UTC,130.158.68.21,3.101.239.119,,13351077114.ap.cc.tsukuba.ac.jp,azami.cc.tsukuba.ac.jp,15,1"
-56519,"型の不一致: 期待=numeric, 実際=string, 値=15,16,255","Apr 27, 2025 05:16:56.364281000 UTC,130.158.68.21,3.101.226.134,,newnetwork.suiri.tsukuba.ac.jp,newnetwork.suiri.tsukuba.ac.jp,newnetwork.suiri.tsukuba.ac.jp,15,16,255"
-78993,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 27, 2025 05:23:49.391798000 UTC,130.158.71.54,3.101.230.155,,13351118109.ap.cc.tsukuba.ac.jp,13351118109.ap.cc.tsukuba.ac.jp,16,255"
-120658,"型の不一致: 期待=numeric, 実際=string, 値=15,255","Apr 27, 2025 05:36:45.243427000 UTC,130.158.68.21,3.101.240.40,,13351080141.ap.cc.tsukuba.ac.jp,13351080141.ap.cc.tsukuba.ac.jp,15,255"
-136797,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 27, 2025 05:41:44.355812000 UTC,130.158.68.21,3.101.239.71,,dhcp220-244.slis.tsukuba.ac.jp,dhcp220-244.slis.tsukuba.ac.jp,16,255"
-137357,"型の不一致: 期待=numeric, 実際=string, 値=1,15,16","Apr 27, 2025 05:41:53.232000000 UTC,130.158.68.21,3.101.239.127,,13351095212.ap.cc.tsukuba.ac.jp,13351095212.ap.cc.tsukuba.ac.jp,13351095212.ap.cc.tsukuba.ac.jp,1,15,16"
-187759,"型の不一致: 期待=numeric, 実際=string, 値=16,255","Apr 27, 2025 05:57:28.469167000 UTC,130.158.71.54,3.101.216.122,,13351064060.ap.cc.tsukuba.ac.jp,13351064060.ap.cc.tsukuba.ac.jp,16,255"

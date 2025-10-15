@@ -6,6 +6,8 @@ import csv
 import statistics
 import argparse
 import io
+import ipaddress
+
 
 def file_lst(year, month, day, where):
     if int(where) == 0:
@@ -26,7 +28,9 @@ def file_time(file_lst):
     ]
     return time_list
 
-def count_query(df, domain_dict):
+def count_query(df, domain_dict, packet_type="query"):
+    """新フォーマット対応: パケットタイプ別クエリカウント"""
+    # パケットフィルタリングは既にopen_reader_safeで実行済み
     df['subdom'] = df['dns.qry.name'].apply(extract_subdomain)
     df_sub = df[df['subdom'].notnull()]
     
@@ -34,13 +38,14 @@ def count_query(df, domain_dict):
     for dom, c in hourly_counts.items():
         domain_dict[dom] = domain_dict.get(dom, 0) + c
 
-def write_csv(dic, year, month, day, where):
-    csv_file_path = f"/home/shimada/analysis/output-2025/count-{where}-{year}-{month}-{day}.csv"
+def write_csv(dic, year, month, day, where, packet_type="query"):
+    """新フォーマット対応: パケットタイプ情報を含むCSV出力"""
+    csv_file_path = f"/home/shimada/analysis/output-2025/count-{packet_type}-{where}-{year}-{month}-{day}.csv"
     with open(csv_file_path, "w", newline='') as f:
         writer = csv.writer(f, delimiter=',')
-        writer.writerow(['day', 'domain', 'count'])
+        writer.writerow(['day', 'packet_type', 'domain', 'count'])
         for subdom, c in dic:
-            writer.writerow([f"{day}", subdom, c])
+            writer.writerow([f"{day}", packet_type, subdom, c])
 
 # 問題のある行を検出する関数
 def detect_problematic_rows(file_path, column_index=5):
@@ -115,6 +120,22 @@ def detect_problematic_rows(file_path, column_index=5):
 
 # 安全にファイルを開く関数
 def open_reader_safe(year, month, day, hour, where):
+    """
+    応答パケット専用のCSV読み込み関数
+    
+    現在のファイルフォーマット:
+    frame.time, ip.src, ip.dst, ipv6.dst, dns.qry.name, dns.qry.type
+    
+    Args:
+        year: 年
+        month: 月
+        day: 日
+        hour: 時
+        where: 0=権威サーバー、1=リゾルバー
+    
+    Returns:
+        DataFrame: 読み込んだデータフレーム（エラー時は空のDataFrame）
+    """
     file_name = f"{year}-{month}-{day}-{hour}.csv"
     if int(where) == 0:
         file_path = f"/mnt/qnap2/shimada/input/{file_name}"
@@ -122,38 +143,29 @@ def open_reader_safe(year, month, day, hour, where):
         file_path = f"/mnt/qnap2/shimada/resolver/{file_name}"
     
     try:
-        # まず問題のある行を検出
-        print(f"ファイル {file_path} の問題のある行を検出しています...")
-        problematic_rows = detect_problematic_rows(file_path)
+        # 現在のフォーマットの期待されるカラム
+        expected_columns = [
+            'frame.time', 'ip.src', 'ip.dst', 'ipv6.dst', 
+            'dns.qry.name', 'dns.qry.type'
+        ]
         
-        if problematic_rows:
-            print(f"ファイル {file_path} で {len(problematic_rows)} 個の問題のある行を検出しました")
-            for row_num, reason, row in problematic_rows[:10]:  # 最初の10行だけ表示
-                print(f"  行 {row_num}: {reason}")
-                print(f"  内容: {','.join(row)}")
-            
-            if len(problematic_rows) > 10:
-                print(f"  ... さらに {len(problematic_rows) - 10} 行の問題があります")
-            
-            # 問題のある行をログファイルに出力
-            log_dir = "/home/shimada/analysis/logs"
-            os.makedirs(log_dir, exist_ok=True)
-            log_file = os.path.join(log_dir, f"problematic_rows_{year}_{month}_{day}_{hour}.csv")
-            
-            with open(log_file, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(['Row', 'Reason', 'Content'])
-                for row_num, reason, row in problematic_rows:
-                    writer.writerow([row_num, reason, ','.join(row)])
-            
-            print(f"問題のある行の詳細は {log_file} に保存されました")
+        # CSVファイルを読み込み（全カラムを文字列として読み込み）
+        df = pd.read_csv(file_path, dtype=str, low_memory=False)
         
-        # 安全に読み込む
-        df = pd.read_csv(file_path, dtype={5: str}, low_memory=False)  # 列5を文字列として読み込む
+        # カラム存在チェック
+        missing_cols = [col for col in expected_columns if col not in df.columns]
+        if missing_cols:
+            print(f"警告: 以下のカラムが見つかりません: {missing_cols}")
+        
+        print(f"ファイル読み込み成功: {file_name} ({len(df)}行)")
         return df
+            
+    except FileNotFoundError:
+        print(f"ファイルが見つかりません: {file_path}")
+        return pd.DataFrame()
     except Exception as e:
         print(f"ファイル {file_path} の読み込み中にエラーが発生しました: {str(e)}")
-        return pd.DataFrame()  # 空のデータフレームを返す
+        return pd.DataFrame()
 
 def extract_subdomain(qname):
     suffix = '.tsukuba.ac.jp'
@@ -171,24 +183,27 @@ def extract_subdomain(qname):
     return None
 
 def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
+    """
+    応答パケット専用版: Qtype比率分析
+    """
     all_files = file_lst(year_pattern, month_pattern, day_pattern, where)
     if not all_files:
         print(f"Warning: No files found for the given patterns (Y:{year_pattern}, M:{month_pattern}, D:{day_pattern}). Skipping analysis.")
         return
 
     # ファイルリストから日付（YYYY-MM-DD）を抽出し、ユニークな日付のリストを作成
-    unique_dates = sorted(list(set([os.path.basename(f)[:10] for f in all_files])))  # 'YYYY-MM-DD'形式
+    unique_dates = sorted(list(set([os.path.basename(f)[:10] for f in all_files])))
 
     for date_str in unique_dates:
         current_year = date_str[:4]
         current_month = date_str[5:7]
         current_day = date_str[8:10]
 
-        daily_subdomain_qtype_counts = {}  # 各日ごとの集計辞書を初期化
+        daily_subdomain_qtype_counts = {}
 
         # この日付に該当するファイルのみを抽出
         daily_files = [f for f in all_files if os.path.basename(f).startswith(date_str)]
-        daily_hours = sorted(list(set([os.path.basename(f)[11:13] for f in daily_files])))  # ユニークな時間リスト
+        daily_hours = sorted(list(set([os.path.basename(f)[11:13] for f in daily_files])))
 
         if not daily_hours:
             print(f"No hourly data found for {date_str}. Skipping this date.")
@@ -196,21 +211,12 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
 
         for hour_str in daily_hours:
             print(f"処理中: {date_str} {hour_str}:00")
-            df = open_reader_safe(current_year, current_month, current_day, hour_str, where)
+            
+            df, _ = open_reader_safe(current_year, current_month, current_day, hour_str, where)
             if df.empty:
                 continue
 
-            # サブドメイン抽出前に型確認
-            print(f"dns.qry.name の型: {df['dns.qry.name'].dtype}")
-            print(f"dns.qry.type の型: {df['dns.qry.type'].dtype}")
-            
-            # 非文字列データの確認
-            non_str_qname = df[~df['dns.qry.name'].apply(lambda x: isinstance(x, str))]
-            if not non_str_qname.empty:
-                print(f"文字列でない dns.qry.name の値: {len(non_str_qname)} 件")
-                print(non_str_qname['dns.qry.name'].head())
-            
-            # サブドメイン抽出（NaN や非文字列値を安全に処理）
+            # サブドメイン抽出
             df['subdom'] = df['dns.qry.name'].apply(lambda x: extract_subdomain(x) if pd.notnull(x) else None)
             
             # dns.qry.type と subdom の両方が null でない行のみをフィルタリング
@@ -240,7 +246,7 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
         # 日ごとの結果をCSVファイルに書き出し
         output_dir = "/home/shimada/analysis/output-2025/qtype/"
         os.makedirs(output_dir, exist_ok=True)
-        output_csv_path = os.path.join(output_dir, f"qtype-{where}-{date_str}.csv")
+        output_csv_path = os.path.join(output_dir, f"qtype-response-{where}-{date_str}.csv")
         
         with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -249,7 +255,6 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
             for subdom, qtype_counts in daily_subdomain_qtype_counts.items():
                 total_queries_for_subdom = sum(qtype_counts.values())
                 
-                # qtypeを数値としてソート（文字列の場合もあるので文字列としてソート）
                 sorted_qtypes = sorted(qtype_counts.keys())
                 
                 for qtype in sorted_qtypes:
@@ -257,17 +262,11 @@ def qtype_ratio(year_pattern, month_pattern, day_pattern, where):
                     ratio = count / total_queries_for_subdom if total_queries_for_subdom > 0 else 0
                     writer.writerow([date_str, subdom, qtype, count, f"{ratio:.4f}"])
         
-        print(f"Qtype ratio analysis for {date_str} completed and saved to {output_csv_path}")
+        print(f"Qtype ratio analysis (response) for {date_str} completed and saved to {output_csv_path}")
 
 def qtype_ratio_total(year_pattern, month_pattern, day_pattern, where):
     """
-    対象期間全体のトラフィックでqtypeの比率を計算する関数
-    
-    Args:
-        year_pattern: 年のパターン（例: "2025"）
-        month_pattern: 月のパターン（例: "01"）
-        day_pattern: 日のパターン（例: "15"）
-        where: 0=権威サーバー、1=リゾルバー
+    応答パケット専用版: 期間全体のQtype比率を計算する関数
     """
     all_files = file_lst(year_pattern, month_pattern, day_pattern, where)
     if not all_files:
@@ -280,7 +279,7 @@ def qtype_ratio_total(year_pattern, month_pattern, day_pattern, where):
     # ファイルリストから日付（YYYY-MM-DD）を抽出し、ユニークな日付のリストを作成
     unique_dates = sorted(list(set([os.path.basename(f)[:10] for f in all_files])))
     
-    print(f"Processing {len(unique_dates)} unique dates...")
+    print(f"Processing {len(unique_dates)} unique dates for response packets...")
     
     for date_str in unique_dates:
         current_year = date_str[:4]
@@ -297,21 +296,12 @@ def qtype_ratio_total(year_pattern, month_pattern, day_pattern, where):
         
         for hour_str in daily_hours:
             print(f"処理中: {date_str} {hour_str}:00")
-            df = open_reader_safe(current_year, current_month, current_day, hour_str, where)
+            
+            df, _ = open_reader_safe(current_year, current_month, current_day, hour_str, where)
             if df.empty:
                 continue
             
-            # サブドメイン抽出前に型確認
-            print(f"dns.qry.name の型: {df['dns.qry.name'].dtype}")
-            print(f"dns.qry.type の型: {df['dns.qry.type'].dtype}")
-            
-            # 非文字列データの確認
-            non_str_qname = df[~df['dns.qry.name'].apply(lambda x: isinstance(x, str))]
-            if not non_str_qname.empty:
-                print(f"文字列でない dns.qry.name の値: {len(non_str_qname)} 件")
-                print(non_str_qname['dns.qry.name'].head())
-            
-            # サブドメイン抽出（NaN や非文字列値を安全に処理）
+            # サブドメイン抽出
             df['subdom'] = df['dns.qry.name'].apply(lambda x: extract_subdomain(x) if pd.notnull(x) else None)
             
             # dns.qry.type と subdom の両方が null でない行のみをフィルタリング
@@ -337,20 +327,19 @@ def qtype_ratio_total(year_pattern, month_pattern, day_pattern, where):
     
     # 期間の表現を作成
     period_str = f"{year_pattern}-{month_pattern}-{day_pattern}"
-    output_csv_path = os.path.join(output_dir, f"qtype-total-{where}-{period_str}.csv")
+    output_csv_path = os.path.join(output_dir, f"qtype-total-response-{where}-{period_str}.csv")
     
     # 総クエリ数を計算
     total_queries = sum(total_qtype_counts.values())
     
     if total_queries == 0:
-        print("No valid queries found in the specified period.")
+        print("No valid response packets found in the specified period.")
         return
     
     with open(output_csv_path, "w", newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(['period', 'qtype', 'count', 'ratio'])
         
-        # qtypeを数値としてソート（文字列の場合もあるので文字列としてソート）
         sorted_qtypes = sorted(total_qtype_counts.keys())
         
         for qtype in sorted_qtypes:
@@ -358,8 +347,8 @@ def qtype_ratio_total(year_pattern, month_pattern, day_pattern, where):
             ratio = count / total_queries
             writer.writerow([period_str, qtype, count, f"{ratio:.6f}"])
     
-    print(f"Total qtype ratio analysis for period {period_str} completed.")
-    print(f"Total queries processed: {total_queries:,}")
+    print(f"Total qtype ratio analysis (response) for period {period_str} completed.")
+    print(f"Total response packets processed: {total_queries:,}")
     print(f"Results saved to: {output_csv_path}")
     
     # 上位qtypeの簡単な統計を表示
@@ -369,15 +358,9 @@ def qtype_ratio_total(year_pattern, month_pattern, day_pattern, where):
         ratio = count / total_queries
         print(f"{i:2d}. {qtype:>6s}: {count:>10,} ({ratio:6.2%})")
 
-
 def qtype_ratio_total_by_date_range(start_date, end_date, where):
     """
-    日付範囲を指定して全期間のqtype比率を計算する関数
-    
-    Args:
-        start_date: 開始日（例: "2025-01-01"）
-        end_date: 終了日（例: "2025-01-31"）
-        where: 0=権威サーバー、1=リゾルバー
+    応答パケット専用版: 日付範囲を指定して全期間のqtype比率を計算する関数
     """
     from datetime import datetime, timedelta
     
@@ -412,7 +395,7 @@ def qtype_ratio_total_by_date_range(start_date, end_date, where):
         
         for hour_str in daily_hours:
             print(f"処理中: {date_str} {hour_str}:00")
-            df = open_reader_safe(year, month, day, hour_str, where)
+            df, _ = open_reader_safe(year, month, day, hour_str, where)
             if df.empty:
                 continue
             
@@ -445,7 +428,7 @@ def qtype_ratio_total_by_date_range(start_date, end_date, where):
     os.makedirs(output_dir, exist_ok=True)
     
     period_str = f"{start_date}_to_{end_date}"
-    output_csv_path = os.path.join(output_dir, f"qtype-total-{where}-{period_str}.csv")
+    output_csv_path = os.path.join(output_dir, f"qtype-total-response-{where}-{period_str}.csv")
     
     # 総クエリ数を計算
     total_queries = sum(total_qtype_counts.values())
@@ -458,7 +441,6 @@ def qtype_ratio_total_by_date_range(start_date, end_date, where):
         writer = csv.writer(f)
         writer.writerow(['period', 'qtype', 'count', 'ratio'])
         
-        # qtypeを文字列としてソート
         sorted_qtypes = sorted(total_qtype_counts.keys())
         
         for qtype in sorted_qtypes:
@@ -466,7 +448,7 @@ def qtype_ratio_total_by_date_range(start_date, end_date, where):
             ratio = count / total_queries
             writer.writerow([period_str, qtype, count, f"{ratio:.6f}"])
     
-    print(f"Total qtype ratio analysis for period {period_str} completed.")
+    print(f"Total qtype ratio analysis (response) for period {period_str} completed.")
     print(f"Total files processed: {total_processed_files}")
     print(f"Total queries processed: {total_queries:,}")
     print(f"Results saved to: {output_csv_path}")
@@ -477,3 +459,25 @@ def qtype_ratio_total_by_date_range(start_date, end_date, where):
     for i, (qtype, count) in enumerate(sorted_by_count[:10], 1):
         ratio = count / total_queries
         print(f"{i:2d}. {qtype:>6s}: {count:>10,} ({ratio:6.2%})")
+
+
+# IPアドレスを限定する
+def count_ip_in_subnet(file_name, subnet):
+    count = 0
+    try:
+        network = ipaddress.ip_network(subnet)
+        ip_pattern = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b')
+        
+        with open(file_name, 'r') as f:
+            for line in f:
+                found_ip = ip_pattern.findall(line)
+                for ip_str in found_ip:
+                    try:
+                        ip_obj = ipaddress.ip_address(ip_str)
+                        if ip_obj in network:
+                            count += 1
+                    except ValueError:
+                        pass
+        return count
+    except ValueError as e:
+        return f"Error {e}"

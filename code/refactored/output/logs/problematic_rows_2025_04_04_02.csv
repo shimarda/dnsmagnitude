@@ -1,6 +1,0 @@
-Row,Reason,Content
-144224,"型の不一致: 期待=numeric, 実際=string, 値=28,28,1","Apr  3, 2025 17:57:39.122877000 UTC,130.158.71.54,46.235.230.124,,myouga.cc.tsukuba.ac.jp,kasumi.cc.tsukuba.ac.jp,myouga.cc.tsukuba.ac.jp,28,28,1"
-144225,"型の不一致: 期待=numeric, 実際=string, 値=28,28,1,28","Apr  3, 2025 17:57:39.153274000 UTC,130.158.71.54,46.235.231.114,,myouga.cc.tsukuba.ac.jp,kasumi.cc.tsukuba.ac.jp,myouga.cc.tsukuba.ac.jp,_nat64.75.158.130.in-addr.arpa,28,28,1,28"
-144227,"型の不一致: 期待=numeric, 実際=string, 値=28,28,1","Apr  3, 2025 17:57:39.194619000 UTC,130.158.71.54,93.93.128.6,,myouga.cc.tsukuba.ac.jp,kasumi.cc.tsukuba.ac.jp,myouga.cc.tsukuba.ac.jp,28,28,1"
-144234,"型の不一致: 期待=numeric, 実際=string, 値=28,28,1","Apr  3, 2025 17:57:39.288531000 UTC,130.158.71.54,95.216.219.126,,myouga.cc.tsukuba.ac.jp,kasumi.cc.tsukuba.ac.jp,myouga.cc.tsukuba.ac.jp,28,28,1"
-144261,"型の不一致: 期待=numeric, 実際=string, 値=28,28,1,28","Apr  3, 2025 17:57:39.833048000 UTC,130.158.71.54,159.69.108.193,,myouga.cc.tsukuba.ac.jp,kasumi.cc.tsukuba.ac.jp,myouga.cc.tsukuba.ac.jp,_nat64.75.158.130.in-addr.arpa,28,28,1,28"
