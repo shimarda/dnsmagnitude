@@ -99,7 +99,7 @@ def compute_magnitude(domain_ip_dict, A_tot):
 
 # --- 出力 ---
 
-def write_output(mag_dict, year, month, day, where, out_dir="/home/shimada/code/refactored/output"):
+def write_output(mag_dict, year, month, day, where, out_dir="/home/shimada/output"):
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"magnitude-{where}-{year}-{month}-{day}.csv")
     with open(path, 'w', newline='') as f:

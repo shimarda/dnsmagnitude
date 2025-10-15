@@ -386,7 +386,7 @@ def main():
                        default='/home/shimada/analysis/output/',
                        help='Magnitudeファイルが格納されているディレクトリ')
     parser.add_argument('--output-dir', 
-                       default='/home/shimada/code/refactored/output/magnitude_statistics/',
+                       default='/home/shimada/output/magnitude_statistics/',
                        help='統計結果を出力するディレクトリ')
     
     args = parser.parse_args()

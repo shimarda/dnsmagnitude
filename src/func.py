@@ -13,7 +13,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 # ===== 共通設定 =====
-OUTPUT_BASE_DIR = "/home/shimada/code/refactored/output"
+OUTPUT_BASE_DIR = "/home/shimada/output"
 
 def ensure_output_dir(subdir=""):
     """出力ディレクトリを作成し、パスを返す"""
