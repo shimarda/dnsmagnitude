@@ -63,20 +63,24 @@ def index():
 def api_magnitude(date_str):
     """指定日のMagnitudeデータをJSONで返す"""
     where = request.args.get('where', 0, type=int)
-    top_n = request.args.get('top', 20, type=int)
+    top_n = request.args.get('top', type=int)  # デフォルトなし = 全件
     
     df = load_magnitude_data(date_str, where)
     if df is None:
         return jsonify({'error': 'Data not found'}), 404
     
-    # Top N を取得
-    top_data = df.nlargest(top_n, 'magnitude')
+    # Top N を取得（指定がある場合のみ制限）
+    if top_n is not None:
+        top_data = df.nlargest(top_n, 'magnitude')
+    else:
+        # 全ドメインを magnitude の降順で取得
+        top_data = df.sort_values('magnitude', ascending=False)
     
     result = {
         'date': date_str,
         'where': where,
         'total_domains': len(df),
-        'top_domains': top_data.to_dict('records')
+        'domains': top_data.to_dict('records')
     }
     
     return jsonify(result)

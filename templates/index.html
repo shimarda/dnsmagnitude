@@ -74,20 +74,25 @@
         </div>
 
         <div class="card">
-            <h2>📋 詳細データ</h2>
-            <table id="dataTable">
-                <thead>
-                    <tr>
-                        <th>順位</th>
-                        <th>サブドメイン</th>
-                        <th>Magnitude</th>
-                        <th>アクション</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    <tr><td colspan="4" class="loading">データを読み込んでください</td></tr>
-                </tbody>
-            </table>
+            <h2>📋 全ドメインランキング</h2>
+            <div style="margin-bottom: 10px;">
+                <span id="domainCount">0</span> ドメイン表示中
+            </div>
+            <div style="max-height: 600px; overflow-y: auto;">
+                <table id="dataTable">
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th>順位</th>
+                            <th>サブドメイン</th>
+                            <th>Magnitude</th>
+                            <th>アクション</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="4" class="loading">データを読み込んでください</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -99,7 +104,8 @@
             const where = document.getElementById('whereSelect').value;
             
             try {
-                const response = await fetch(`/api/magnitude/${date}?where=${where}&top=20`);
+                // 全ドメインを取得（topパラメータなし）
+                const response = await fetch(`/api/magnitude/${date}?where=${where}`);
                 const data = await response.json();
                 
                 if (data.error) {
@@ -119,9 +125,9 @@
         function updateStats(data) {
             document.getElementById('totalDomains').textContent = data.total_domains;
             
-            if (data.top_domains.length > 0) {
-                const topMag = data.top_domains[0].magnitude.toFixed(4);
-                const avgMag = (data.top_domains.reduce((sum, d) => sum + d.magnitude, 0) / data.top_domains.length).toFixed(4);
+            if (data.domains.length > 0) {
+                const topMag = data.domains[0].magnitude.toFixed(4);
+                const avgMag = (data.domains.reduce((sum, d) => sum + d.magnitude, 0) / data.domains.length).toFixed(4);
                 
                 document.getElementById('topMagnitude').textContent = topMag;
                 document.getElementById('avgMagnitude').textContent = avgMag;
@@ -135,8 +141,10 @@
                 barChart.destroy();
             }
             
-            const labels = data.top_domains.map(d => d.subdomain);
-            const values = data.top_domains.map(d => d.magnitude);
+            // チャートはTop 20のみ表示
+            const top20 = data.domains.slice(0, 20);
+            const labels = top20.map(d => d.subdomain);
+            const values = top20.map(d => d.magnitude);
             
             barChart = new Chart(ctx, {
                 type: 'bar',
@@ -167,7 +175,10 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             
-            data.top_domains.forEach((domain, index) => {
+            // 全ドメインを表示
+            document.getElementById('domainCount').textContent = data.domains.length;
+            
+            data.domains.forEach((domain, index) => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>${index + 1}</td>

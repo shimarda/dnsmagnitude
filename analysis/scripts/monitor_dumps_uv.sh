@@ -142,6 +142,18 @@ process_dump_file() {
     log "処理対象日(JST): $jst_date"
     log "ファイル時刻(JST): $jst_datetime"
     
+    # === 処理済みチェック（DNS Magnitude結果ファイルの存在確認） ===
+    local auth_result="${OUTPUT_DIR}/0-${jst_date}.csv"
+    local resolver_result="${OUTPUT_DIR}/1-${jst_date}.csv"
+    
+    if [[ -f "$auth_result" ]] && [[ -f "$resolver_result" ]]; then
+        log "✓ DNS Magnitude結果が既に存在します。処理をスキップ"
+        log "  - 権威サーバー: $auth_result"
+        log "  - リゾルバ: $resolver_result"
+        mark_as_processed "$dump_file"
+        return 0
+    fi
+    
     if [[ -f "$LOCK_FILE" ]]; then
         log "WARNING: 別の処理が実行中です。スキップ"
         return 1
@@ -161,43 +173,95 @@ process_dump_file() {
     # 1-1. 権威サーバー用tshark抽出
     log "Step 1-1: 権威サーバー用tshark抽出"
     
-    if [[ -f "${TSHARK_SCRIPT_DIR}/tshark-auth.sh" ]]; then
-        cd "${TSHARK_SCRIPT_DIR}"
-        
-        local auth_sample_file="/mnt/qnap2/shimada/input/${year}-${month}-${day}-00.csv"
-        if [[ -f "$auth_sample_file" ]]; then
-            log "✓ 権威サーバーCSVファイルは既に存在します。tshark抽出をスキップ"
+    local auth_csv_complete=true
+    local auth_input_dir="/mnt/qnap2/shimada/input"
+    
+    # 24時間分のCSVファイルが存在するかチェック
+    for hour in {00..23}; do
+        local hourly_file="${auth_input_dir}/${year}-${month}-${day}-${hour}.csv"
+        if [[ ! -f "$hourly_file" ]]; then
+            auth_csv_complete=false
+            log "  - 未発見: ${year}-${month}-${day}-${hour}.csv (権威サーバー)"
+            break
+        fi
+    done
+    
+    if [[ "$auth_csv_complete" == "false" ]]; then
+        # 日次ファイルが存在するかチェック
+        local daily_file="${auth_input_dir}/${year}-${month}-${day}.csv"
+        if [[ -f "$daily_file" ]]; then
+            log "✓ 権威サーバー日次CSVファイルが存在します"
+            auth_csv_complete=true
         else
-            log "権威サーバー用tshark抽出を実行中..."
-            if bash tshark-auth.sh "$start_jst" "$end_jst" >> "$LOG_FILE" 2>&1; then
-                log "✓ 権威サーバー用tshark抽出完了"
+            log "⚠ 権威サーバーの24時間分のCSVファイルが揃っていません。tshark抽出を実行"
+            
+            if [[ -f "${TSHARK_SCRIPT_DIR}/tshark-auth.sh" ]]; then
+                cd "${TSHARK_SCRIPT_DIR}"
+                if bash tshark-auth.sh "$start_jst" "$end_jst" >> "$LOG_FILE" 2>&1; then
+                    log "✓ 権威サーバー用tshark抽出完了"
+                    auth_csv_complete=true
+                else
+                    log "ERROR: 権威サーバー用tshark抽出に失敗"
+                    auth_csv_complete=false
+                fi
             else
-                log "WARNING: 権威サーバー用tshark抽出でエラー（処理続行）"
+                log "ERROR: tshark-auth.sh が見つかりません: ${TSHARK_SCRIPT_DIR}/tshark-auth.sh"
+                auth_csv_complete=false
             fi
         fi
     else
-        log "WARNING: tshark-auth.sh が見つかりません: ${TSHARK_SCRIPT_DIR}/tshark-auth.sh"
+        log "✓ 権威サーバーの24時間分のCSVファイルが揃っています"
     fi
     
     # 1-2. リゾルバ用tshark抽出
     log "Step 1-2: リゾルバ用tshark抽出"
     
-    if [[ -f "${TSHARK_SCRIPT_DIR}/tshark-resolver-v2.sh" ]]; then
-        cd "${TSHARK_SCRIPT_DIR}"
-        
-        local resolver_sample_file="/mnt/qnap2/shimada/resolver/${year}-${month}-${day}-00.csv"
-        if [[ -f "$resolver_sample_file" ]]; then
-            log "✓ リゾルバCSVファイルは既に存在します。tshark抽出をスキップ"
+    local resolver_csv_complete=true
+    local resolver_input_dir="/mnt/qnap2/shimada/resolver"
+    
+    # 24時間分のCSVファイルが存在するかチェック
+    for hour in {00..23}; do
+        local hourly_file="${resolver_input_dir}/${year}-${month}-${day}-${hour}.csv"
+        if [[ ! -f "$hourly_file" ]]; then
+            resolver_csv_complete=false
+            log "  - 未発見: ${year}-${month}-${day}-${hour}.csv (リゾルバ)"
+            break
+        fi
+    done
+    
+    if [[ "$resolver_csv_complete" == "false" ]]; then
+        # 日次ファイルが存在するかチェック
+        local daily_file="${resolver_input_dir}/${year}-${month}-${day}.csv"
+        if [[ -f "$daily_file" ]]; then
+            log "✓ リゾルバ日次CSVファイルが存在します"
+            resolver_csv_complete=true
         else
-            log "リゾルバ用tshark抽出を実行中..."
-            if bash tshark-resolver-v2.sh "$start_jst" "$end_jst" >> "$LOG_FILE" 2>&1; then
-                log "✓ リゾルバ用tshark抽出完了"
+            log "⚠ リゾルバの24時間分のCSVファイルが揃っていません。tshark抽出を実行"
+            
+            if [[ -f "${TSHARK_SCRIPT_DIR}/tshark-resolver-v2.sh" ]]; then
+                cd "${TSHARK_SCRIPT_DIR}"
+                if bash tshark-resolver-v2.sh "$start_jst" "$end_jst" >> "$LOG_FILE" 2>&1; then
+                    log "✓ リゾルバ用tshark抽出完了"
+                    resolver_csv_complete=true
+                else
+                    log "ERROR: リゾルバ用tshark抽出に失敗"
+                    resolver_csv_complete=false
+                fi
             else
-                log "WARNING: リゾルバ用tshark抽出でエラー（処理続行）"
+                log "ERROR: tshark-resolver-v2.sh が見つかりません: ${TSHARK_SCRIPT_DIR}/tshark-resolver-v2.sh"
+                resolver_csv_complete=false
             fi
         fi
     else
-        log "WARNING: tshark-resolver-v2.sh が見つかりません: ${TSHARK_SCRIPT_DIR}/tshark-resolver-v2.sh"
+        log "✓ リゾルバの24時間分のCSVファイルが揃っています"
+    fi
+    
+    # CSVファイルが揃っていない場合は処理を中断
+    if [[ "$auth_csv_complete" == "false" ]] || [[ "$resolver_csv_complete" == "false" ]]; then
+        log "ERROR: 必要なCSVファイルが揃っていないため、DNS Magnitude計算をスキップします"
+        rm -f "$LOCK_FILE"
+        trap - EXIT
+        return 1
     fi
     
     # Step 2: DNS Magnitude計算（権威サーバー）
@@ -207,21 +271,41 @@ process_dump_file() {
     
     local auth_result="${OUTPUT_DIR}/0-${jst_date}.csv"
     
+    # 結果ファイルが既に存在する場合はスキップ
     if [[ -f "$auth_result" ]]; then
-        log "既存ファイルをバックアップ: $auth_result"
-        cp "$auth_result" "${auth_result}.backup_$(date +%Y%m%d_%H%M%S)"
-    fi
-    
-    if [[ -f "${SCRIPT_DIR}/new-tshark-mag.py" ]]; then
-        if "$PYTHON_BIN" "${SCRIPT_DIR}/new-tshark-mag.py" \
-            -y "$year" -m "$month" -d "$day" -w 0 \
-            -o "${LOG_DIR}/error_auth_${year}${month}${day}.txt" >> "$LOG_FILE" 2>&1; then
-            log "✓ 権威サーバーMagnitude計算完了"
-        else
-            log "WARNING: 権威サーバーMagnitude計算でエラー"
-        fi
+        log "✓ 権威サーバーの結果ファイルが既に存在します。処理をスキップ: $auth_result"
     else
-        log "ERROR: new-tshark-mag.py が見つかりません: ${SCRIPT_DIR}/new-tshark-mag.py"
+        # 24時間分のCSVファイルが存在する場合のみ実行
+        if [[ "$auth_csv_complete" == "true" ]]; then
+            # 日次ファイルではなく、24時間分のファイルが存在するかを再確認
+            local hourly_exists=true
+            for hour in {00..23}; do
+                local hourly_file="${auth_input_dir}/${year}-${month}-${day}-${hour}.csv"
+                if [[ ! -f "$hourly_file" ]]; then
+                    hourly_exists=false
+                    break
+                fi
+            done
+            
+            if [[ "$hourly_exists" == "true" ]]; then
+                log "✓ 24時間分のCSVファイルが揃っています。Magnitude計算を実行"
+                if [[ -f "${SCRIPT_DIR}/new-tshark-mag.py" ]]; then
+                    if "$PYTHON_BIN" "${SCRIPT_DIR}/new-tshark-mag.py" \
+                        -y "$year" -m "$month" -d "$day" -w 0 \
+                        -o "${LOG_DIR}/error_auth_${year}${month}${day}.txt" >> "$LOG_FILE" 2>&1; then
+                        log "✓ 権威サーバーMagnitude計算完了"
+                    else
+                        log "WARNING: 権威サーバーMagnitude計算でエラー"
+                    fi
+                else
+                    log "ERROR: new-tshark-mag.py が見つかりません: ${SCRIPT_DIR}/new-tshark-mag.py"
+                fi
+            else
+                log "⚠ 24時間分のCSVファイルが揃っていないため、権威サーバーMagnitude計算をスキップ"
+            fi
+        else
+            log "⚠ CSVファイルが不完全なため、権威サーバーMagnitude計算をスキップ"
+        fi
     fi
     
     # Step 3: DNS Magnitude計算（リゾルバ）
@@ -229,21 +313,41 @@ process_dump_file() {
     
     local resolver_result="${OUTPUT_DIR}/1-${jst_date}.csv"
     
+    # 結果ファイルが既に存在する場合はスキップ
     if [[ -f "$resolver_result" ]]; then
-        log "既存ファイルをバックアップ: $resolver_result"
-        cp "$resolver_result" "${resolver_result}.backup_$(date +%Y%m%d_%H%M%S)"
-    fi
-    
-    if [[ -f "${SCRIPT_DIR}/new-tshark-mag.py" ]]; then
-        if "$PYTHON_BIN" "${SCRIPT_DIR}/new-tshark-mag.py" \
-            -y "$year" -m "$month" -d "$day" -w 1 \
-            -o "${LOG_DIR}/error_resolver_${year}${month}${day}.txt" >> "$LOG_FILE" 2>&1; then
-            log "✓ リゾルバMagnitude計算完了"
-        else
-            log "WARNING: リゾルバMagnitude計算でエラー"
-        fi
+        log "✓ リゾルバの結果ファイルが既に存在します。処理をスキップ: $resolver_result"
     else
-        log "ERROR: new-tshark-mag.py が見つかりません: ${SCRIPT_DIR}/new-tshark-mag.py"
+        # 24時間分のCSVファイルが存在する場合のみ実行
+        if [[ "$resolver_csv_complete" == "true" ]]; then
+            # 日次ファイルではなく、24時間分のファイルが存在するかを再確認
+            local hourly_exists=true
+            for hour in {00..23}; do
+                local hourly_file="${resolver_input_dir}/${year}-${month}-${day}-${hour}.csv"
+                if [[ ! -f "$hourly_file" ]]; then
+                    hourly_exists=false
+                    break
+                fi
+            done
+            
+            if [[ "$hourly_exists" == "true" ]]; then
+                log "✓ 24時間分のCSVファイルが揃っています。Magnitude計算を実行"
+                if [[ -f "${SCRIPT_DIR}/new-tshark-mag.py" ]]; then
+                    if "$PYTHON_BIN" "${SCRIPT_DIR}/new-tshark-mag.py" \
+                        -y "$year" -m "$month" -d "$day" -w 1 \
+                        -o "${LOG_DIR}/error_resolver_${year}${month}${day}.txt" >> "$LOG_FILE" 2>&1; then
+                        log "✓ リゾルバMagnitude計算完了"
+                    else
+                        log "WARNING: リゾルバMagnitude計算でエラー"
+                    fi
+                else
+                    log "ERROR: new-tshark-mag.py が見つかりません: ${SCRIPT_DIR}/new-tshark-mag.py"
+                fi
+            else
+                log "⚠ 24時間分のCSVファイルが揃っていないため、リゾルバMagnitude計算をスキップ"
+            fi
+        else
+            log "⚠ CSVファイルが不完全なため、リゾルバMagnitude計算をスキップ"
+        fi
     fi
     
     # Step 4: 結果確認
