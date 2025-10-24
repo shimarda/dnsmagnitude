@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS Magnitude ダッシュボード</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; }
+        .header { background: #2c3e50; color: white; padding: 20px; }
+        .header h1 { font-size: 24px; }
+        .controls { background: white; padding: 20px; margin: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .controls select, .controls button { padding: 10px; font-size: 14px; margin-right: 10px; }
+        .content { margin: 20px; }
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h2 { font-size: 18px; margin-bottom: 15px; color: #2c3e50; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-box { background: #ecf0f1; padding: 15px; border-radius: 6px; text-align: center; }
+        .stat-box .value { font-size: 28px; font-weight: bold; color: #3498db; }
+        .stat-box .label { font-size: 14px; color: #7f8c8d; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; }
+        table th { background: #34495e; color: white; padding: 12px; text-align: left; }
+        table td { padding: 12px; border-bottom: 1px solid #ecf0f1; }
+        table tr:hover { background: #f8f9fa; }
+        .chart-container { position: relative; height: 400px; }
+        .loading { text-align: center; padding: 40px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌐 DNS Magnitude 監視ダッシュボード</h1>
+    </div>
+
+    <div class="controls">
+        <label>日付選択:</label>
+        <select id="dateSelect">
+            {% for date in available_dates %}
+            <option value="{{ date }}" {% if date == latest_date %}selected{% endif %}>{{ date }}</option>
+            {% endfor %}
+        </select>
+        
+        <label>サーバー:</label>
+        <select id="whereSelect">
+            <option value="0">権威サーバー</option>
+            <option value="1">リゾルバ</option>
+        </select>
+        
+        <button onclick="loadData()">データ読み込み</button>
+        <button onclick="location.href='/compare'">比較表示</button>
+    </div>
+
+    <div class="content">
+        <div class="stats" id="statsContainer">
+            <div class="stat-box">
+                <div class="value" id="totalDomains">-</div>
+                <div class="label">総ドメイン数</div>
+            </div>
+            <div class="stat-box">
+                <div class="value" id="topMagnitude">-</div>
+                <div class="label">最大Magnitude</div>
+            </div>
+            <div class="stat-box">
+                <div class="value" id="avgMagnitude">-</div>
+                <div class="label">平均Magnitude</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Top 20 ドメイン (Magnitude順)</h2>
+            <div class="chart-container">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📋 詳細データ</h2>
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>順位</th>
+                        <th>サブドメイン</th>
+                        <th>Magnitude</th>
+                        <th>アクション</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="4" class="loading">データを読み込んでください</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let barChart = null;
+
+        async function loadData() {
+            const date = document.getElementById('dateSelect').value;
+            const where = document.getElementById('whereSelect').value;
+            
+            try {
+                const response = await fetch(`/api/magnitude/${date}?where=${where}&top=20`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('データが見つかりません');
+                    return;
+                }
+                
+                updateStats(data);
+                updateChart(data);
+                updateTable(data);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('データの読み込みに失敗しました');
+            }
+        }
+
+        function updateStats(data) {
+            document.getElementById('totalDomains').textContent = data.total_domains;
+            
+            if (data.top_domains.length > 0) {
+                const topMag = data.top_domains[0].magnitude.toFixed(4);
+                const avgMag = (data.top_domains.reduce((sum, d) => sum + d.magnitude, 0) / data.top_domains.length).toFixed(4);
+                
+                document.getElementById('topMagnitude').textContent = topMag;
+                document.getElementById('avgMagnitude').textContent = avgMag;
+            }
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            
+            if (barChart) {
+                barChart.destroy();
+            }
+            
+            const labels = data.top_domains.map(d => d.subdomain);
+            const values = data.top_domains.map(d => d.magnitude);
+            
+            barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'DNS Magnitude',
+                        data: values,
+                        backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            data.top_domains.forEach((domain, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td><strong>${domain.subdomain}</strong></td>
+                    <td>${domain.magnitude.toFixed(6)}</td>
+                    <td><button onclick="showTrend('${domain.subdomain}')">トレンド表示</button></td>
+                `;
+            });
+        }
+
+        function showTrend(subdomain) {
+            const where = document.getElementById('whereSelect').value;
+            window.open(`/trend?subdomain=${subdomain}&where=${where}`, '_blank');
+        }
+
+        // 初回読み込み
+        window.onload = () => {
+            if (document.getElementById('dateSelect').value) {
+                loadData();
+            }
+        };
+    </script>
+</body>
+</html>
