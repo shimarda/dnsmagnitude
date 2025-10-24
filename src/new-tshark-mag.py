@@ -1,215 +1,141 @@
-#!/usr/bin/env python3
-"""
-DNS Magnitude 計算ツール（tshark 形式）
-
-- A_tot はその日の全行から unique(ip.dst)
-- サブドメイン抽出は厳密（lower、末尾ドット除去、suffix 1回、末尾一致）
-- 出力は day,domain,dnsmagnitude（降順）
-- 日次 CSV があれば日次を優先、無ければ 00–23 を探索
-
-使い方:
-  python3 new-tshark-mag.py -y 2025 -m 04 -d 01 -w 0
-"""
-
-import os
 import re
-import io
+import pandas as pd
+import os
+import glob
 import csv
 import math
+import operator
 import argparse
-import pandas as pd
-from collections import defaultdict
+import io
 
-# --- パス解決 ---
+import func
 
-def daily_path(year, month, day, where):
-    base = "/mnt/qnap2/shimada/input" if where == 0 else "/mnt/qnap2/shimada/resolver"
-    return os.path.join(base, f"{year}-{month}-{day}.csv")
-
-def hourly_path(year, month, day, hour, where):
-    base = "/mnt/qnap2/shimada/input" if where == 0 else "/mnt/qnap2/shimada/resolver"
-    return os.path.join(base, f"{year}-{month}-{day}-{hour}.csv")
-
-# --- ロバストリーダ ---
-
-def read_csv_robust(path):
-    """まず素直に pd.read_csv、失敗したら1行ずつ救済。返り値: (df, error_lines)"""
-    errors = []
-    try:
-        return pd.read_csv(path), errors
-    except Exception as e:
-        print(f"通常読み込み失敗: {os.path.basename(path)}: {e}")
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                r = csv.reader(f)
-                header = next(r)
-                ok = [header]
-                for i, row in enumerate(r, start=2):  # 1-based + ヘッダ
-                    try:
-                        if len(row) == len(header):
-                            ok.append(row)
-                        else:
-                            errors.append((i, ','.join(row)))
-                    except Exception as rexc:
-                        errors.append((i, ','.join(row) if isinstance(row, list) else str(row)))
-                if len(ok) > 1:
-                    s = io.StringIO()
-                    w = csv.writer(s)
-                    w.writerows(ok)
-                    s.seek(0)
-                    return pd.read_csv(s), errors
-                else:
-                    return pd.DataFrame(columns=header), errors
-        except Exception as fe:
-            print(f"救済読み込みも失敗: {path}: {fe}")
-            return pd.DataFrame(), errors
-
-# --- サブドメイン抽出 ---
-
-def extract_subdomain(qname: str):
+# サブドメインを抽出する関数
+def extract_subdomain(qname):
     suffix = '.tsukuba.ac.jp'
-    if not isinstance(qname, str):
-        return None
-    q = qname.lower().rstrip('.')
-    if q.count(suffix) != 1:
-        return None
-    if not q.endswith(suffix):
-        return None
-    body = q[: -len(suffix)]
-    if not body:
-        return None
-    parts = body.split('.')
-    if not parts:
-        return None
-    top = parts[-1]
-    return top or None
+    if isinstance(qname, str):
+        qname_lower = qname.lower()
+        # dns.qry.name に tsukuba.ac.jp が 1 回だけ出現する場合のみ処理する
+        if qname_lower.count(suffix) != 1:
+            return None
+        if qname_lower.endswith(suffix):
+            # サフィックスを取り除く
+            qname_no_suffix = qname_lower[:-len(suffix)]
+            if qname_no_suffix.endswith('.'):
+                qname_no_suffix = qname_no_suffix[:-1]
+            if qname_no_suffix:
+                # ドットで分割し、最後の要素を取得
+                subdomain = qname_no_suffix.split('.')[-1]
+                return subdomain
+    return None
 
-# --- Magnitude 計算 ---
+# 権威サーバーからの応答を使用するため
+# カウントするIPアドレスは送信先IPアドレスを用いる
+if __name__ == "__main__":
 
-def compute_magnitude(domain_ip_dict, A_tot):
-    if A_tot <= 0:
-        return {}
-    out = {}
-    lnA = math.log(A_tot)
-    for dom, s in domain_ip_dict.items():
-        c = len(s)
-        if c > 0:
-            out[dom] = 10 * math.log(c) / lnA
-    return dict(sorted(out.items(), key=lambda x: x[1], reverse=True))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-y', help='year')
+    parser.add_argument('-m', help='month')
+    parser.add_argument('-d', help='day')
+    parser.add_argument('-w', help='0は権威1はリゾルバ')
+    parser.add_argument('-o', help='エラーログ出力ファイル', default='error_log.txt')
+    args = parser.parse_args()
 
-# --- 出力 ---
+    year = args.y
+    month = args.m
+    day = args.d
+    where = int(args.w)
+    error_log_file = args.o
 
-def write_output(mag_dict, year, month, day, where, out_dir="/home/shimada/output"):
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, f"magnitude-{where}-{year}-{month}-{day}.csv")
-    with open(path, 'w', newline='') as f:
-        w = csv.writer(f)
-        w.writerow(['day', 'domain', 'dnsmagnitude'])
-        for dom, mag in mag_dict.items():
-            w.writerow([day, dom, f"{mag:.6f}"])
-    print(f"結果を保存: {path}")
-    return path
+    # パターンにあうファイルの時間をリストへ
+    r = func.file_lst(year, month, day, where)
+    time_lst = func.file_time(r)
+    # keyに日にち、値に時間
+    file_dict = {}
 
-# --- メイン ---
+    # 日にちごとに時間リストへ入れる
+    for time in time_lst:
+        month = time[4:6]
+        day = time[6:8]
+        hour = time[8:10]
+        if day not in file_dict.keys():
+            file_dict[day] = []
+        file_dict[day].append(hour)
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('-y', required=True)
-    ap.add_argument('-m', required=True)
-    ap.add_argument('-d', required=True)
-    ap.add_argument('-w', required=True, type=int, choices=[0, 1])  # 0=権威,1=リゾルバ
-    ap.add_argument('-o', default='error_log.txt')
-    args = ap.parse_args()
-
-    y = args.y
-    m = args.m.zfill(2)
-    d = args.d.zfill(2)
-    w = args.w
-
-    print("=== DNS Magnitude 計算開始 ===")
-    print(f"対象: {y}-{m}-{d}  where={w}")
-
-    # 日次優先
-    paths = []
-    dpath = daily_path(y, m, d, w)
-    if os.path.exists(dpath):
-        paths = [dpath]
-    else:
-        for h in range(24):
-            p = hourly_path(y, m, d, f"{h:02d}", w)
-            if os.path.exists(p):
-                paths.append(p)
-
-    if not paths:
-        print("対象ファイルが見つかりません")
-        return 1
-
-    errors_total = []
+    # 総エラー行数のカウントとエラー行の保存
+    total_error_lines = []
     file_error_counts = {}
 
-    # 全行から A_tot を取るための ip.dst 集合
-    all_ipdst = set()
-    domain_ip = defaultdict(set)
+    for day in file_dict.keys():
+        uni_src_set = set()
+        domain_dict = {}
+        A_tot = 0
 
-    for p in sorted(paths):
-        print(f"読み込み: {os.path.basename(p)}")
-        df, errs = read_csv_robust(p)
-        if errs:
-            file_error_counts[os.path.basename(p)] = len(errs)
-            for ln, content in errs:
-                errors_total.append((os.path.basename(p), ln, content))
+        # 1時間ごとにファイルにアクセス
+        for hour in file_dict[day]:
+            print(month + day + hour)
+            # データフレームを読み込む
+            input_file_name = f"{year}-{month}-{day}.csv"
+            df = func.open_reader_safe(year, month, day, where)
+            
+            # 空のデータフレームならスキップ
+            if df.empty:
+                print(f"空のデータフレーム: {input_file_name} - スキップします")
+                continue
 
-        if df.empty:
-            continue
-        if 'ip.dst' not in df.columns or 'dns.qry.name' not in df.columns:
-            continue
+            # 'ip.dst' のユニークなセットを更新（A_total）
+            uni_src_set.update(df['ip.dst'].unique())
 
-        # A_tot 用（全行）
-        all_ipdst.update(df['ip.dst'].dropna().unique())
+            # 'dns.qry.name' からサブドメインを抽出して新しい列を追加
+            df['subdomain'] = df['dns.qry.name'].apply(extract_subdomain)
 
-        # サブドメイン抽出 → 集計
-        df = df.copy()
-        df['subdomain'] = df['dns.qry.name'].apply(extract_subdomain)
-        v = df[df['subdomain'].notna()].copy()
-        if v.empty:
-            continue
-        g = v.groupby('subdomain')['ip.dst'].apply(lambda s: set(s.dropna())).to_dict()
-        for dom, s in g.items():
-            domain_ip[dom].update(s)
+            # サブドメインが存在する行のみを抽出（extract_subdomain が None を返した行はスキップ）
+            df_sub = df[df['subdomain'].notnull()]
 
-    A_tot = len(all_ipdst)
-    print(f"A_tot (unique ip.dst): {A_tot}")
-    if A_tot == 0 or not domain_ip:
-        print("有効データがありません")
-        return 1
+            hour_domain_src_addr_dict = df_sub.groupby('subdomain')['ip.dst'].apply(set).to_dict()
 
-    mag = compute_magnitude(domain_ip, A_tot)
+            # 結果を更新
+            for domain, src_addrs in hour_domain_src_addr_dict.items():
+                if domain in domain_dict:
+                    domain_dict[domain].update(src_addrs)
+                else:
+                    domain_dict[domain] = src_addrs
 
-    # 上位10表示
-    print("\n=== Top 10 ===")
-    for i, (dom, mval) in enumerate(list(mag.items())[:10], 1):
-        print(f"{i:2d}. {dom:20} {mval:8.6f} (IPs={len(domain_ip[dom])})")
+        A_tot = len(uni_src_set)
 
-    write_output(mag, y, m, d, w)
+        # マグニチュードの計算とソート
+        magnitude_dict = {}
+        for key in domain_dict.keys():
+            src_addr_count = len(domain_dict[key])
+            if src_addr_count > 0 and A_tot > 0:  # 0で割らないよう保護
+                magnitude = 10 * math.log(src_addr_count) / math.log(A_tot)
+                magnitude_dict[key] = magnitude
 
-    # エラーログ
-    if errors_total:
-        with open(args.o, 'w', encoding='utf-8') as f:
-            f.write("=== エラー行の詳細 ===\n")
-            for fname, ln, content in errors_total:
-                f.write(f"ファイル: {fname}, 行番号: {ln}\n")
-                f.write(f"行内容: {content}\n")
-                f.write("-"*80 + "\n")
-            f.write("\n=== ファイルごとのエラー行数 ===\n")
-            for k, v in file_error_counts.items():
-                f.write(f"{k}: {v}行\n")
-            f.write(f"\n総エラー行数: {len(errors_total)}\n")
-        print(f"エラーログ: {args.o}")
-    else:
-        print("エラー行なし")
-
-    print("=== 完了 ===")
-    return 0
-
-if __name__ == '__main__':
-    raise SystemExit(main())
+        # マグニチュードの降順でソート
+        mag_dict = dict(sorted(magnitude_dict.items(), key=lambda item: item[1], reverse=True))
+        
+        # 結果をCSVファイルに書き込む
+        csv_file_path = f"/home/shimada/analysis/output/{where}-{year}-{month}-{day}.csv"
+        with open(csv_file_path, "w", newline='') as f:
+            writer = csv.writer(f, delimiter=',')
+            writer.writerow(['day', 'domain', 'dnsmagnitude'])
+            for subdomain in mag_dict:
+                writer.writerow([f"{day}", subdomain, str(mag_dict[subdomain])])
+    
+    # エラーログの出力
+    with open(error_log_file, 'w', encoding='utf-8') as log_file:
+        log_file.write("=== エラー行の詳細 ===\n")
+        for file_name, line_num, line_content in total_error_lines:
+            log_file.write(f"ファイル: {file_name}, 行番号: {line_num}\n")
+            log_file.write(f"行内容: {line_content}\n")
+            log_file.write("-" * 80 + "\n")
+        
+        log_file.write("\n=== ファイルごとのエラー行数 ===\n")
+        for file_name, count in file_error_counts.items():
+            log_file.write(f"{file_name}: {count}行\n")
+        
+        log_file.write(f"\n総エラー行数: {len(total_error_lines)}\n")
+    
+    # 総エラー行数の出力
+    print(f"総エラー行数: {len(total_error_lines)}")
+    print(f"詳細なエラーログは {error_log_file} に保存されました")
