@@ -21,6 +21,8 @@ function convert_time_to_jst() {
     echo $jst_time
 }
 
+file_count=0
+
 # 各ファイルに対して処理を実行
 for file in $original_files
 do
@@ -64,8 +66,16 @@ do
         # 解凍ファイルを削除（不要な場合）
         rm "$input_file"
         rm "$copied_file"
-
         # 出力ファイルのパスを表示
         echo "$output_file"
+
+        ((file_count++))
+        
+        # 定期的なメモリ解放
+        if (( file_count % 5 == 0 )); then
+            echo "===== ${file_count}ファイル処理完了。メモリ解放待機中 ====="
+            sleep 3
+            sync
+        fi
     fi
 done
