@@ -1,2 +1,4 @@
 *.log
 ./output/*
+error_log.txt
+__pycache__/
