@@ -39,6 +39,9 @@
             <option value="{{ date }}" {% if date == latest_date %}selected{% endif %}>{{ date }}</option>
             {% endfor %}
         </select>
+        <!-- 直接日付入力（YYYY-MM-DD） -->
+        <label style="margin-left:10px;">日付直接指定:</label>
+        <input type="date" id="dateInput" value="{{ latest_date }}">
         
         <label>サーバー:</label>
         <select id="whereSelect">
@@ -47,7 +50,11 @@
         </select>
         
         <button onclick="loadData()">データ読み込み</button>
+        <button onclick="loadDataFromInput()">指定日で読み込み</button>
         <button onclick="location.href='/compare'">比較表示</button>
+        <div style="display:inline-block; margin-left:20px;">
+            表示中: <strong id="currentDateLabel">-</strong>
+        </div>
     </div>
 
     <div class="content">
@@ -99,27 +106,87 @@
     <script>
         let barChart = null;
 
-        async function loadData() {
-            const date = document.getElementById('dateSelect').value;
-            const where = document.getElementById('whereSelect').value;
-            
+        async function fetchAndRender(date, where) {
             try {
-                // 全ドメインを取得（topパラメータなし）
                 const response = await fetch(`/api/magnitude/${date}?where=${where}`);
                 const data = await response.json();
-                
+
                 if (data.error) {
                     alert('データが見つかりません');
                     return;
                 }
-                
+
+                // レンダリング
                 updateStats(data);
                 updateChart(data);
                 updateTable(data);
+
+                // 表示中の日付を更新して、プルダウンと入力欄を同期する
+                try {
+                    const select = document.getElementById('dateSelect');
+                    const dateInput = document.getElementById('dateInput');
+
+                    // select に該当オプションがなければ先頭に追加
+                    let found = false;
+                    for (let i=0;i<select.options.length;i++){
+                        if (select.options[i].value === date){
+                            select.selectedIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found){
+                        const opt = document.createElement('option');
+                        opt.value = date;
+                        opt.text = date;
+                        select.insertBefore(opt, select.firstChild);
+                        select.selectedIndex = 0;
+                    }
+
+                    if (dateInput) dateInput.value = date;
+                    const label = document.getElementById('currentDateLabel');
+                    if (label) label.textContent = date;
+                } catch (e) {
+                    // 同期失敗しても表示自体は行われているので無視
+                    console.warn('sync failed', e);
+                }
             } catch (error) {
                 console.error('Error:', error);
                 alert('データの読み込みに失敗しました');
             }
+        }
+
+        async function loadData() {
+            const date = document.getElementById('dateSelect').value;
+            const where = document.getElementById('whereSelect').value;
+            await fetchAndRender(date, where);
+        }
+
+        async function loadDataFromInput() {
+            const date = document.getElementById('dateInput').value;
+            if (!date) {
+                alert('日付を入力してください');
+                return;
+            }
+            const where = document.getElementById('whereSelect').value;
+            // プルダウンの選択肢が存在すれば同期させる。なければ追加して選択。
+            const select = document.getElementById('dateSelect');
+            let found = false;
+            for (let i=0;i<select.options.length;i++){
+                if (select.options[i].value === date){
+                    select.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found){
+                const opt = document.createElement('option');
+                opt.value = date;
+                opt.text = date;
+                select.insertBefore(opt, select.firstChild);
+                select.selectedIndex = 0;
+            }
+            await fetchAndRender(date, where);
         }
 
         function updateStats(data) {
@@ -196,10 +263,33 @@
 
         // 初回読み込み
         window.onload = () => {
-            if (document.getElementById('dateSelect').value) {
+            // dateInput を select の現在値に揃える（最新日付が template から渡される）
+            const select = document.getElementById('dateSelect');
+            const dateInput = document.getElementById('dateInput');
+            if (select && select.value && dateInput) {
+                dateInput.value = select.value;
+            }
+
+            if (select && select.value) {
                 loadData();
             }
         };
+        // 相互同期: select / dateInput の change イベントで同期して自動読み込み
+        document.addEventListener('DOMContentLoaded', () => {
+            const select = document.getElementById('dateSelect');
+            const dateInput = document.getElementById('dateInput');
+            if (select) {
+                select.addEventListener('change', () => {
+                    if (dateInput) dateInput.value = select.value;
+                    loadData();
+                });
+            }
+            if (dateInput) {
+                dateInput.addEventListener('change', () => {
+                    loadDataFromInput();
+                });
+            }
+        });
     </script>
 </body>
 </html>

@@ -14,29 +14,78 @@ import json
 app = Flask(__name__)
 
 # 設定
-OUTPUT_DIR = "/home/shimada/analysis/output"
-DAYS_TO_SHOW = 30
+# 複数の出力先を検索する（既存環境に合わせて両方を参照する）
+OUTPUT_DIRS = [
+    "/home/shimada/analysis/output"
+]
+DAYS_TO_SHOW = None  # None = 全件表示、数値を設定すれば件数制限
 
 def get_available_dates():
-    """利用可能な日付一覧を取得"""
-    files = glob.glob(os.path.join(OUTPUT_DIR, "0-*.csv"))
-    dates = []
-    for f in files:
-        basename = os.path.basename(f)
-        # 0-YYYY-MM-DD.csv から日付抽出
+    """利用可能な日付一覧を取得
+
+    - 複数の出力ディレクトリとファイル名パターンに対応する。
+    - ファイル名中の YYYY-MM-DD 形式の日付を抽出してユニーク化する。
+    """
+    # ファイル名から日付を抽出して集合化し、日付そのものの降順で返す
+    import re
+    date_set = set()
+
+    for outdir in OUTPUT_DIRS:
         try:
-            date_str = basename.split('-', 1)[1].replace('.csv', '')
-            dates.append(date_str)
-        except:
+            csv_files = glob.glob(os.path.join(outdir, "*.csv"))
+        except Exception:
             continue
-    return sorted(dates, reverse=True)
+
+        for f in csv_files:
+            basename = os.path.basename(f)
+            try:
+                m = re.search(r"(\d{4}-\d{2}-\d{2})", basename)
+                if m:
+                    date_set.add(m.group(1))
+            except Exception:
+                continue
+
+    # 日付文字列を datetime に変換して降順ソート（最新日付が先）
+    parsed = []
+    for d in date_set:
+        try:
+            dt = datetime.strptime(d, "%Y-%m-%d")
+            parsed.append((dt, d))
+        except Exception:
+            continue
+
+    parsed.sort(key=lambda x: x[0], reverse=True)
+    return [d for _, d in parsed]
 
 def load_magnitude_data(date_str, where=0):
-    """指定日のMagnitudeデータを読み込み"""
-    filepath = os.path.join(OUTPUT_DIR, f"{where}-{date_str}.csv")
-    if not os.path.exists(filepath):
+    """指定日のMagnitudeデータを読み込み
+
+    複数のディレクトリとファイル名バリエーションを試す。見つかった最初のファイルを返す。
+    """
+    # 各ディレクトリでいくつかのパターンを試す
+    filepath = None
+    for outdir in OUTPUT_DIRS:
+        try:
+            # 典型的なファイル名
+            patterns = [
+                os.path.join(outdir, f"{where}-{date_str}.csv"),
+                os.path.join(outdir, f"*{where}-{date_str}*.csv")
+            ]
+            for p in patterns:
+                matches = glob.glob(p)
+                if matches:
+                    # 最も新しいファイルを採用
+                    matches.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                    filepath = matches[0]
+                    break
+        except Exception:
+            continue
+        if filepath:
+            break
+
+    if filepath is None:
         return None
-    
+
     try:
         df = pd.read_csv(filepath)
         # カラム名の正規化
@@ -55,9 +104,12 @@ def index():
     dates = get_available_dates()
     latest_date = dates[0] if dates else None
     
+    # DAYS_TO_SHOW が None なら全件、数値なら制限
+    display_dates = dates if DAYS_TO_SHOW is None else dates[:DAYS_TO_SHOW]
+    
     return render_template('index.html', 
                          latest_date=latest_date,
-                         available_dates=dates[:DAYS_TO_SHOW])
+                         available_dates=display_dates)
 
 @app.route('/api/magnitude/<date_str>')
 def api_magnitude(date_str):
@@ -113,7 +165,8 @@ def api_trend(subdomain):
 def compare():
     """権威 vs リゾルバ比較ページ"""
     dates = get_available_dates()
-    return render_template('compare.html', dates=dates[:DAYS_TO_SHOW])
+    display_dates = dates if DAYS_TO_SHOW is None else dates[:DAYS_TO_SHOW]
+    return render_template('compare.html', dates=display_dates)
 
 if __name__ == '__main__':
     # 開発用サーバー起動
