@@ -112,7 +112,7 @@ def main():
         title=f"Domain-wise Monthly Mean of DNS Magnitude ({args.year}-{args.month:02d})",
         ylabel="DNS Magnitude (monthly mean)",
         ylimit=(0, 10),
-        outfile=str(out_dir / "month_boxplot_mean.png"),
+        outfile=str(out_dir / "month_boxplot_mean.pdf"),
     )
 
     # ---- Std dev boxplot ----
@@ -125,7 +125,7 @@ def main():
         title=f"Domain-wise Monthly Std Dev of DNS Magnitude ({args.year}-{args.month:02d})",
         ylabel="DNS Magnitude (monthly std dev)",
         ylimit=None,
-        outfile=str(out_dir / "month_boxplot_std.png"),
+        outfile=str(out_dir / "month_boxplot_std.pdf"),
     )
 
 if __name__ == "__main__":
