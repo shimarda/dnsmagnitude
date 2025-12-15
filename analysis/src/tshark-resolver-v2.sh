@@ -3,6 +3,11 @@
 start_jst=$1
 end_jst=$2
 
+# メモリ使用量の閾値設定
+MEMORY_THRESHOLD_MB=10000  # 10GB以上の空きメモリが必要
+CHUNK_DURATION=300         # チャンク分割時間（秒）: 5分単位
+USE_CHUNKING_THRESHOLD_MB=500  # このサイズ以上でチャンク分割
+
 # JSTからUTCに変換（JST = UTC + 9時間なので、UTC = JST - 9時間）
 start_utc=$(TZ=UTC date -d "TZ=\"Asia/Tokyo\" $(echo $start_jst | sed -r 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3 \4:\5/')" +"%Y%m%d%H%M")
 end_utc=$(TZ=UTC date -d "TZ=\"Asia/Tokyo\" $(echo $end_jst | sed -r 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3 \4:\5/')" +"%Y%m%d%H%M")
@@ -16,6 +21,108 @@ function convert_time_to_jst() {
     echo $jst_time
 }
 
+function check_memory() {
+    free -m | awk '/^Mem:/ {print $7}'
+}
+
+function wait_for_memory() {
+    while true; do
+        available=$(check_memory)
+        if [ $available -gt $MEMORY_THRESHOLD_MB ]; then
+            break
+        fi
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] メモリ不足 (空き: ${available}MB)。30秒待機..."
+        sleep 30
+        sync
+        echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    done
+}
+
+function get_file_size_mb() {
+    local file="$1"
+    stat -c%s "$file" | awk '{print int($1/1024/1024)}'
+}
+
+function process_with_chunking() {
+    local input_file="$1"
+    local output_file="$2"
+    local temp_dir="${output_file%.csv}_chunks"
+    
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] チャンク分割処理開始: $input_file"
+    echo "空きメモリ: $(check_memory)MB"
+    
+    mkdir -p "$temp_dir"
+    
+    # editcapで時間単位に分割
+    echo "ファイルを${CHUNK_DURATION}秒単位に分割中..."
+    editcap -i $CHUNK_DURATION "$input_file" "${temp_dir}/chunk_" 2>&1
+    
+    if [ $? -ne 0 ]; then
+        echo "エラー: ファイル分割に失敗しました"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    # 最初のチャンクでヘッダー付きで処理
+    local first_chunk=true
+    local chunk_count=0
+    local temp_file="${output_file}.tmp"
+    
+    for chunk in "${temp_dir}"/chunk_*; do
+        if [ ! -f "$chunk" ]; then
+            continue
+        fi
+        
+        ((chunk_count++))
+        echo "  チャンク $chunk_count 処理中... ($(basename $chunk))"
+        
+        wait_for_memory
+        
+        if [ "$first_chunk" = true ]; then
+            # 最初のチャンクのみヘッダー付き
+            tshark \
+                -r "$chunk" \
+                -Y '(ip.src == 130.158.68.25 or ip.src == 130.158.68.26) and (dns.qry.name matches "\.tsukuba\.ac\.jp$") and (dns.flags.response == 1) and (dns.flags.authoritative == 0) and (dns.flags.rcode == 0)' \
+                -T fields \
+                -e frame.time -e ip.src -e ip.dst -e ipv6.dst -e dns.qry.name -e dns.qry.type \
+                -E header=y -E separator=, -E quote=d \
+                > "$temp_file" 2>&1
+            
+            # ヘッダーとフィルタ済みデータを出力
+            head -n 1 "$temp_file" > "$output_file"
+            tail -n +2 "$temp_file" | grep -E ',"[^"]*\.tsukuba\.ac\.jp",' >> "$output_file"
+            first_chunk=false
+        else
+            # 2番目以降はヘッダーなしで追記
+            tshark \
+                -r "$chunk" \
+                -Y '(ip.src == 130.158.68.25 or ip.src == 130.158.68.26) and (dns.qry.name matches "\.tsukuba\.ac\.jp$") and (dns.flags.response == 1) and (dns.flags.authoritative == 0) and (dns.flags.rcode == 0)' \
+                -T fields \
+                -e frame.time -e ip.src -e ip.dst -e ipv6.dst -e dns.qry.name -e dns.qry.type \
+                -E header=n -E separator=, -E quote=d \
+                > "$temp_file" 2>&1
+            
+            # フィルタ済みデータを追記
+            grep -E ',"[^"]*\.tsukuba\.ac\.jp",' "$temp_file" >> "$output_file"
+        fi
+        
+        # 一時ファイルとチャンクを削除
+        rm -f "$temp_file"
+        rm -f "$chunk"
+        
+        # 小まめにメモリ解放
+        if (( chunk_count % 3 == 0 )); then
+            sync
+            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+        fi
+    done
+    
+    rm -rf "$temp_dir"
+    
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] チャンク処理完了 (チャンク数: $chunk_count)"
+    return 0
+}
+
 file_count=0
 
 for file in $original_files
@@ -23,37 +130,53 @@ do
     file_time=$(basename "$file" | grep -oP '\d{12}')
 
     if [[ "$file_time" -ge "$start_utc" && "$file_time" -le "$end_utc" ]]; then
+        wait_for_memory
+        
         dst_dir="/mnt/qnap2/shimada/resolver/"
         copied_file="$dst_dir$(basename "$file")"
 
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ファイルコピー: $(basename "$file")"
         cp "$file" "$dst_dir"
+        
         input_file="${copied_file%.gz}"
+        
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] 解凍中..."
         gzip -d -k "$copied_file"
+        
+        file_size_mb=$(get_file_size_mb "$input_file")
+        echo "解凍後のファイルサイズ: ${file_size_mb}MB"
 
         jst_timestamp=$(convert_time_to_jst "$input_file")
         time_str="${jst_timestamp:0:4}-${jst_timestamp:4:2}-${jst_timestamp:6:2}-${jst_timestamp:8:2}"
         output_file="${dst_dir}${time_str}.csv"
-        temp_file="${dst_dir}${time_str}.tmp.csv"
 
-        echo "----- $input_file の処理開始 -----"
+        echo "----- $input_file の処理開始 (リゾルバ) -----"
         
-        # tsharkから正規表現フィルタを除去（ストリーミング処理を最適化）
-        /usr/bin/time -v tshark \
-            -r "$input_file" \
-            -Y '(ip.src == 130.158.68.25 or ip.src == 130.158.68.26) and (dns.qry.name matches "\.tsukuba\.ac\.jp$") and (dns.flags.response == 1) and (dns.flags.authoritative == 0) and (dns.flags.rcode == 0)' \
-            -T fields \
-            -e frame.time -e ip.src -e ip.dst -e ipv6.dst -e dns.qry.name -e dns.qry.type \
-            -E header=y -E separator=, -E quote=d \
-            > "$temp_file"
-        
-        # grep側で正確にtsukuba.ac.jpで終わる行のみを抽出
-        # ヘッダー行を保持し、dns.qry.nameフィールド(5番目)が.tsukuba.ac.jpで終わる行を抽出
-        (head -n 1 "$temp_file" && tail -n +2 "$temp_file" | grep -E ',"[^"]*\.tsukuba\.ac\.jp",') > "$output_file"
+        # ファイルサイズに応じて処理方法を選択
+        if [ $file_size_mb -gt $USE_CHUNKING_THRESHOLD_MB ]; then
+            echo "大容量ファイル(${file_size_mb}MB)検出。チャンク分割処理を実行します。"
+            process_with_chunking "$input_file" "$output_file"
+        else
+            echo "通常サイズファイル(${file_size_mb}MB)。標準処理を実行します。"
+            temp_file="${output_file}.tmp"
+            
+            /usr/bin/time -v tshark \
+                -r "$input_file" \
+                -Y '(ip.src == 130.158.68.25 or ip.src == 130.158.68.26) and (dns.qry.name matches "\.tsukuba\.ac\.jp$") and (dns.flags.response == 1) and (dns.flags.authoritative == 0) and (dns.flags.rcode == 0)' \
+                -T fields \
+                -e frame.time -e ip.src -e ip.dst -e ipv6.dst -e dns.qry.name -e dns.qry.type \
+                -E header=y -E separator=, -E quote=d \
+                > "$temp_file" 2>&1
+            
+            # grep側で正確にtsukuba.ac.jpで終わる行のみを抽出
+            (head -n 1 "$temp_file" && tail -n +2 "$temp_file" | grep -E ',"[^"]*\.tsukuba\.ac\.jp",') > "$output_file"
+            
+            rm -f "$temp_file"
+        fi
         
         echo "----- $input_file の処理終了 -----"
 
-        # 一時ファイルと元ファイルを削除
-        rm -f "$temp_file"
+        # 元ファイルを削除
         rm -f "$input_file"
         rm -f "$copied_file"
 
@@ -62,12 +185,16 @@ do
         ((file_count++))
         
         # 定期的なメモリ解放
-        if (( file_count % 5 == 0 )); then
-            echo "===== ${file_count}ファイル処理完了。メモリ解放待機中 ====="
-            sleep 3
+        if (( file_count % 2 == 0 )); then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ${file_count}ファイル処理完了。メモリ解放中..."
             sync
+            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+            sleep 5
+            echo "現在の空きメモリ: $(check_memory)MB"
         fi
     fi
 done
 
-echo "===== 全処理完了 ====="
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] ===== 全処理完了 (リゾルバ) ====="
+echo "処理ファイル数: $file_count"
+echo "最終空きメモリ: $(check_memory)MB"
