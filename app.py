@@ -168,6 +168,71 @@ def compare():
     display_dates = dates if DAYS_TO_SHOW is None else dates[:DAYS_TO_SHOW]
     return render_template('compare.html', dates=display_dates)
 
+@app.route('/trend')
+def trend_page():
+    """トレンド表示ページ"""
+    dates = get_available_dates()
+    latest_date = dates[0] if dates else datetime.now().strftime("%Y-%m-%d")
+    return render_template('trend.html', latest_date=latest_date)
+
+@app.route('/api/trend_combined')
+def api_trend_combined():
+    """特定サブドメインの権威・リゾルバ両方のトレンドデータ"""
+    subdomain = request.args.get('subdomain')
+    start_date_str = request.args.get('start')
+    end_date_str = request.args.get('end')
+    
+    if not subdomain:
+        return jsonify({'error': 'Subdomain is required'}), 400
+        
+    # 日付範囲の生成
+    try:
+        start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date_str, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        # デフォルト: 過去30日
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=30)
+    
+    # 日付リスト作成 (start -> end)
+    date_list = []
+    curr = start_dt
+    while curr <= end_dt:
+        date_list.append(curr.strftime("%Y-%m-%d"))
+        curr += timedelta(days=1)
+        
+    trend_data = []
+    
+    for d in date_list:
+        # 権威 (0)
+        df_auth = load_magnitude_data(d, 0)
+        auth_mag = None
+        if df_auth is not None:
+            row = df_auth[df_auth['subdomain'] == subdomain]
+            if not row.empty:
+                auth_mag = float(row['magnitude'].iloc[0])
+                
+        # リゾルバ (1)
+        df_res = load_magnitude_data(d, 1)
+        res_mag = None
+        if df_res is not None:
+            row = df_res[df_res['subdomain'] == subdomain]
+            if not row.empty:
+                res_mag = float(row['magnitude'].iloc[0])
+        
+        # どちらかがあればデータとして追加
+        if auth_mag is not None or res_mag is not None:
+            trend_data.append({
+                'date': d,
+                'auth_mag': auth_mag,
+                'res_mag': res_mag
+            })
+            
+    return jsonify({
+        'subdomain': subdomain,
+        'data': trend_data
+    })
+
 if __name__ == '__main__':
     # 開発用サーバー起動
     app.run(host='0.0.0.0', port=5000, debug=True)
