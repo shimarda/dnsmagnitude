@@ -92,11 +92,12 @@
                             <th>順位</th>
                             <th>サブドメイン</th>
                             <th>Magnitude</th>
+                            <th>前日比</th>
                             <th>アクション</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
-                        <tr><td colspan="4" class="loading">データを読み込んでください</td></tr>
+                        <tr><td colspan="5" class="loading">データを読み込んでください</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -247,10 +248,46 @@
             
             data.domains.forEach((domain, index) => {
                 const row = tbody.insertRow();
+                
+                // 順位変動の表示
+                let rankDiffHtml = '';
+                if (domain.rank_diff !== null && domain.rank_diff !== undefined) {
+                    const rDiff = domain.rank_diff;
+                    if (rDiff > 0) {
+                        rankDiffHtml = `<span style="color: #e74c3c; font-size: 0.8em; margin-left: 5px;">(↑${rDiff})</span>`;
+                    } else if (rDiff < 0) {
+                        rankDiffHtml = `<span style="color: #3498db; font-size: 0.8em; margin-left: 5px;">(↓${Math.abs(rDiff)})</span>`;
+                    } else {
+                        rankDiffHtml = `<span style="color: #95a5a6; font-size: 0.8em; margin-left: 5px;">(-)</span>`;
+                    }
+                }
+
+                let diffHtml = '<span style="color: #95a5a6;">-</span>';
+                if (domain.diff !== null && domain.diff !== undefined) {
+                    const diffVal = domain.diff;
+                    const diffStr = diffVal > 0 ? `+${diffVal.toFixed(4)}` : diffVal.toFixed(4);
+                    
+                    // 0.1以上の変動で矢印をつける
+                    if (diffVal >= 0.1) {
+                        diffHtml = `<span style="color: #e74c3c; font-weight:bold;">↑ ${diffStr}</span>`;
+                    } else if (diffVal <= -0.1) {
+                        diffHtml = `<span style="color: #3498db; font-weight:bold;">↓ ${diffStr}</span>`;
+                    } else if (diffVal > 0) {
+                        diffHtml = `<span style="color: #e74c3c;">${diffStr}</span>`;
+                    } else if (diffVal < 0) {
+                        diffHtml = `<span style="color: #3498db;">${diffStr}</span>`;
+                    } else {
+                        diffHtml = `<span style="color: #95a5a6;">0.0000</span>`;
+                    }
+                } else {
+                     diffHtml = '<span style="color: #f39c12; font-weight:bold; font-size: 0.9em;">New</span>';
+                }
+
                 row.innerHTML = `
-                    <td>${index + 1}</td>
+                    <td>${index + 1} ${rankDiffHtml}</td>
                     <td><strong>${domain.subdomain}</strong></td>
                     <td>${domain.magnitude.toFixed(6)}</td>
+                    <td>${diffHtml}</td>
                     <td><button onclick="showTrend('${domain.subdomain}')">トレンド表示</button></td>
                 `;
             });

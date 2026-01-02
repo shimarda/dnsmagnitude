@@ -6,18 +6,26 @@ echo ""
 
 # 1. ディレクトリ確認
 echo "【1. 監視ディレクトリの確認】"
-WATCH_DIR="/mnt/qnap2/dnscap/dnscap"
-if [ -d "$WATCH_DIR" ]; then
-    echo "✓ ディレクトリ存在: $WATCH_DIR"
-    echo "ファイル数: $(ls -1 $WATCH_DIR/dump-*.gz 2>/dev/null | wc -l)"
-else
-    echo "✗ ディレクトリが見つかりません: $WATCH_DIR"
-fi
+WATCH_DIRS=("/mnt/qnap2/dnscap/dnscap" "/mnt/qnap2/dnscap/2025")
+
+for WATCH_DIR in "${WATCH_DIRS[@]}"; do
+    if [ -d "$WATCH_DIR" ]; then
+        echo "✓ ディレクトリ存在: $WATCH_DIR"
+        echo "ファイル数: $(ls -1 $WATCH_DIR/dump-*.gz 2>/dev/null | wc -l)"
+    else
+        echo "✗ ディレクトリが見つかりません: $WATCH_DIR"
+    fi
+done
 
 # 2. JST 23時相当のファイル確認（UTC 14時）
 echo ""
 echo "【2. JST 23時相当のファイル（UTC 14時）】"
-ls -lh "$WATCH_DIR"/dump-*1400.gz 2>/dev/null | tail -5
+for WATCH_DIR in "${WATCH_DIRS[@]}"; do
+    if [ -d "$WATCH_DIR" ]; then
+        echo "--- $WATCH_DIR ---"
+        ls -lh "$WATCH_DIR"/dump-*1400.gz 2>/dev/null | tail -5
+    fi
+done
 FILE_COUNT=$(ls -1 "$WATCH_DIR"/dump-*1400.gz 2>/dev/null | wc -l)
 echo "該当ファイル数: $FILE_COUNT"
 

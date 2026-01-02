@@ -4,7 +4,7 @@
 set -e
 
 # ========== 設定 ==========
-WATCH_DIR="/mnt/qnap2/dnscap/dnscap"
+WATCH_DIRS=("/mnt/qnap2/dnscap/dnscap" "/mnt/qnap2/dnscap/2025")
 PROJECT_DIR="/home/shimada/dns-dashboard/analysis"
 SCRIPT_DIR="/home/shimada/dns-dashboard/analysis/src"
 OUTPUT_DIR="/home/shimada/analysis/output"
@@ -393,23 +393,27 @@ check_uv_env
 
 log "============================================"
 log "パケットダンプ監視開始"
-log "監視ディレクトリ: $WATCH_DIR"
+log "監視ディレクトリ: ${WATCH_DIRS[*]}"
 log "監視パターン: dump-*1400.gz (JST 23時相当)"
 log "スクリプトディレクトリ: $TSHARK_SCRIPT_DIR"
 log "Python: $PYTHON_BIN"
 log "============================================"
 
 log "既存ファイルチェック中..."
-for file in "$WATCH_DIR"/dump-*1400.gz; do
-    if [[ -f "$file" ]] && ! is_processed "$file"; then
-        log "未処理ファイル検出: $(basename "$file")"
-        process_dump_file "$file"
+for WATCH_DIR in "${WATCH_DIRS[@]}"; do
+    if [ -d "$WATCH_DIR" ]; then
+        for file in "$WATCH_DIR"/dump-*1400.gz; do
+            if [[ -f "$file" ]] && ! is_processed "$file"; then
+                log "未処理ファイル検出: $(basename "$file")"
+                process_dump_file "$file"
+            fi
+        done
     fi
 done
 
 log "inotifywaitによるリアルタイム監視を開始..."
 
-inotifywait -m -e close_write,moved_to --format '%w%f' "$WATCH_DIR" 2>/dev/null | while read filepath; do
+inotifywait -m -e close_write,moved_to --format '%w%f' "${WATCH_DIRS[@]}" 2>/dev/null | while read filepath; do
     filename=$(basename "$filepath")
     
     if is_jst_23_oclock_file "$filename"; then

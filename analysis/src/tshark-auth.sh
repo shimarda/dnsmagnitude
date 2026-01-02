@@ -14,7 +14,7 @@ start_utc=$(TZ=UTC date -d "TZ=\"Asia/Tokyo\" $(echo $start_jst | sed -r 's/([0-
 end_utc=$(TZ=UTC date -d "TZ=\"Asia/Tokyo\" $(echo $end_jst | sed -r 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3 \4:\5/')" +"%Y%m%d%H%M")
 
 # 元の圧縮ファイルのパスを取得
-original_files=$(ls -1 /mnt/qnap2/dnscap/dnscap/dump-*.gz | sort)
+original_files=$(ls -1 /mnt/qnap2/dnscap/dnscap/dump-*.gz /mnt/qnap2/dnscap/2025/dump-*.gz 2>/dev/null | sort)
 
 function convert_time_to_jst() {
     # 引数からファイル名を取得

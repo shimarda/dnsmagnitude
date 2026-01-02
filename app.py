@@ -114,28 +114,75 @@ def index():
 @app.route('/api/magnitude/<date_str>')
 def api_magnitude(date_str):
     """指定日のMagnitudeデータをJSONで返す"""
-    where = request.args.get('where', 0, type=int)
-    top_n = request.args.get('top', type=int)  # デフォルトなし = 全件
-    
-    df = load_magnitude_data(date_str, where)
-    if df is None:
-        return jsonify({'error': 'Data not found'}), 404
-    
-    # Top N を取得（指定がある場合のみ制限）
-    if top_n is not None:
-        top_data = df.nlargest(top_n, 'magnitude')
-    else:
-        # 全ドメインを magnitude の降順で取得
-        top_data = df.sort_values('magnitude', ascending=False)
-    
-    result = {
-        'date': date_str,
-        'where': where,
-        'total_domains': len(df),
-        'domains': top_data.to_dict('records')
-    }
-    
-    return jsonify(result)
+    try:
+        where = request.args.get('where', 0, type=int)
+        top_n = request.args.get('top', type=int)  # デフォルトなし = 全件
+        
+        df = load_magnitude_data(date_str, where)
+        if df is None:
+            return jsonify({'error': 'Data not found'}), 404
+        
+        # 前日データの取得と差分計算
+        dates = get_available_dates()
+        prev_date = None
+        try:
+            idx = dates.index(date_str)
+            if idx + 1 < len(dates):
+                prev_date = dates[idx + 1]
+        except ValueError:
+            pass
+            
+        # 順位計算 (Magnitudeの降順)
+        df['rank'] = df['magnitude'].rank(ascending=False, method='min')
+
+        if prev_date:
+            df_prev = load_magnitude_data(prev_date, where)
+            if df_prev is not None:
+                # 型変換を行ってマージの安定性を高める
+                df['subdomain'] = df['subdomain'].astype(str)
+                df['magnitude'] = pd.to_numeric(df['magnitude'], errors='coerce')
+                
+                # 前日の順位も計算
+                df_prev['prev_rank'] = df_prev['magnitude'].rank(ascending=False, method='min')
+
+                df_prev_subset = df_prev[['subdomain', 'magnitude', 'prev_rank']].rename(columns={'magnitude': 'prev_magnitude'})
+                df_prev_subset['subdomain'] = df_prev_subset['subdomain'].astype(str)
+                df_prev_subset['prev_magnitude'] = pd.to_numeric(df_prev_subset['prev_magnitude'], errors='coerce')
+                
+                df = pd.merge(df, df_prev_subset, on='subdomain', how='left')
+                df['diff'] = df['magnitude'] - df['prev_magnitude']
+                # 順位変動: 前日順位 - 当日順位 (プラスなら順位上昇)
+                df['rank_diff'] = df['prev_rank'] - df['rank']
+            else:
+                df['diff'] = None
+                df['rank_diff'] = None
+        else:
+            df['diff'] = None
+            df['rank_diff'] = None
+
+        # Top N を取得（指定がある場合のみ制限）
+        if top_n is not None:
+            top_data = df.nlargest(top_n, 'magnitude')
+        else:
+            # 全ドメインを magnitude の降順で取得
+            top_data = df.sort_values('magnitude', ascending=False)
+        
+        # NaN (float) を None に変換してJSON化可能にする
+        # DataFrame全体をobject型に変換してから置換することで、float列にNoneが入ることを許容する
+        top_data = top_data.astype(object).where(pd.notnull(top_data), None)
+        domains_list = top_data.to_dict('records')
+        
+        result = {
+            'date': date_str,
+            'where': where,
+            'total_domains': len(df),
+            'domains': domains_list
+        }
+        
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error(f"Error in api_magnitude: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/trend/<subdomain>')
 def api_trend(subdomain):
@@ -151,8 +198,14 @@ def api_trend(subdomain):
         if df is not None:
             row = df[df['subdomain'] == subdomain]
             if not row.empty:
+                # 曜日を追加
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                weekdays = ["月", "火", "水", "木", "金", "土", "日"]
+                weekday = weekdays[dt.weekday()]
+                date_display = f"{date_str} ({weekday})"
+
                 trend_data.append({
-                    'date': date_str,
+                    'date': date_display,
                     'magnitude': float(row['magnitude'].iloc[0])
                 })
     
@@ -222,8 +275,14 @@ def api_trend_combined():
         
         # どちらかがあればデータとして追加
         if auth_mag is not None or res_mag is not None:
+            # 曜日を追加
+            dt = datetime.strptime(d, "%Y-%m-%d")
+            weekdays = ["月", "火", "水", "木", "金", "土", "日"]
+            weekday = weekdays[dt.weekday()]
+            date_display = f"{d} ({weekday})"
+
             trend_data.append({
-                'date': d,
+                'date': date_display,
                 'auth_mag': auth_mag,
                 'res_mag': res_mag
             })

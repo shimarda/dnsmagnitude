@@ -12,7 +12,7 @@ USE_CHUNKING_THRESHOLD_MB=500  # このサイズ以上でチャンク分割
 start_utc=$(TZ=UTC date -d "TZ=\"Asia/Tokyo\" $(echo $start_jst | sed -r 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3 \4:\5/')" +"%Y%m%d%H%M")
 end_utc=$(TZ=UTC date -d "TZ=\"Asia/Tokyo\" $(echo $end_jst | sed -r 's/([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})/\1-\2-\3 \4:\5/')" +"%Y%m%d%H%M")
 
-original_files=$(ls -1 /mnt/qnap2/dnscap/dnscap/dump-*.gz | sort)
+original_files=$(ls -1 /mnt/qnap2/dnscap/dnscap/dump-*.gz /mnt/qnap2/dnscap/2025/dump-*.gz 2>/dev/null | sort)
 
 function convert_time_to_jst() {
     file_name="$1"
