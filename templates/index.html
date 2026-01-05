@@ -92,6 +92,7 @@
                             <th>順位</th>
                             <th>サブドメイン</th>
                             <th>Magnitude</th>
+                            <th>Query Count</th>
                             <th>前日比</th>
                             <th>アクション</th>
                         </tr>
@@ -283,10 +284,22 @@
                      diffHtml = '<span style="color: #f39c12; font-weight:bold; font-size: 0.9em;">New</span>';
                 }
 
+                let countHtml = '-';
+                if (domain.count !== undefined && domain.count !== null) {
+                    countHtml = domain.count.toLocaleString();
+                    if (domain.count_diff !== undefined && domain.count_diff !== null) {
+                        const cDiff = domain.count_diff;
+                        const cDiffStr = cDiff > 0 ? `+${cDiff.toLocaleString()}` : cDiff.toLocaleString();
+                        const color = cDiff > 0 ? '#e74c3c' : (cDiff < 0 ? '#3498db' : '#95a5a6');
+                        countHtml += ` <span style="color: ${color}; font-size: 0.8em;">(${cDiffStr})</span>`;
+                    }
+                }
+
                 row.innerHTML = `
                     <td>${index + 1} ${rankDiffHtml}</td>
                     <td><strong>${domain.subdomain}</strong></td>
                     <td>${domain.magnitude.toFixed(6)}</td>
+                    <td>${countHtml}</td>
                     <td>${diffHtml}</td>
                     <td><button onclick="showTrend('${domain.subdomain}')">トレンド表示</button></td>
                 `;

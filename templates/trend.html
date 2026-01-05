@@ -31,6 +31,12 @@
         <span>～</span>
         <input type="date" id="endDate">
         
+        <div style="margin-top: 10px;">
+            <label>表示指標:</label>
+            <input type="checkbox" id="showMagnitude" checked onchange="updateChartVisibility()"> Magnitude
+            <input type="checkbox" id="showCount" onchange="updateChartVisibility()"> Query Count
+        </div>
+
         <button onclick="loadTrendData()">グラフ更新</button>
         <button onclick="window.close()">閉じる</button>
     </div>
@@ -45,6 +51,7 @@
 
     <script>
         let trendChart = null;
+        let currentChartData = null;
 
         // URLパラメータ取得
         const urlParams = new URLSearchParams(window.location.search);
@@ -105,6 +112,7 @@
                     return;
                 }
 
+                currentChartData = data;
                 updateChart(data);
 
             } catch (error) {
@@ -123,29 +131,61 @@
             const labels = data.data.map(d => d.date);
             const authData = data.data.map(d => d.auth_mag);
             const resData = data.data.map(d => d.res_mag);
+            const authCnt = data.data.map(d => d.auth_cnt);
+            const resCnt = data.data.map(d => d.res_cnt);
             
+            // チェックボックスの状態を取得
+            const showMag = document.getElementById('showMagnitude').checked;
+            const showCnt = document.getElementById('showCount').checked;
+
             trendChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
                         {
-                            label: '権威サーバー (Authoritative)',
+                            label: '権威サーバー (Magnitude)',
                             data: authData,
                             borderColor: 'rgba(231, 76, 60, 1)',
                             backgroundColor: 'rgba(231, 76, 60, 0.1)',
                             borderWidth: 2,
                             tension: 0.1,
-                            fill: false
+                            fill: false,
+                            yAxisID: 'y',
+                            hidden: !showMag
                         },
                         {
-                            label: 'リゾルバ (Resolver)',
+                            label: 'リゾルバ (Magnitude)',
                             data: resData,
                             borderColor: 'rgba(52, 152, 219, 1)',
                             backgroundColor: 'rgba(52, 152, 219, 0.1)',
                             borderWidth: 2,
                             tension: 0.1,
-                            fill: false
+                            fill: false,
+                            yAxisID: 'y',
+                            hidden: !showMag
+                        },
+                        {
+                            label: '権威サーバー (Count)',
+                            data: authCnt,
+                            borderColor: 'rgba(231, 76, 60, 0.5)',
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: false,
+                            yAxisID: 'y1',
+                            hidden: !showCnt
+                        },
+                        {
+                            label: 'リゾルバ (Count)',
+                            data: resCnt,
+                            borderColor: 'rgba(52, 152, 219, 0.5)',
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: false,
+                            yAxisID: 'y1',
+                            hidden: !showCnt
                         }
                     ]
                 },
@@ -154,6 +194,9 @@
                     maintainAspectRatio: false,
                     scales: {
                         y: {
+                            type: 'linear',
+                            display: showMag, // Magnitude非表示なら軸も消す
+                            position: 'left',
                             beginAtZero: true,
                             min: 0,
                             max: 10,
@@ -161,16 +204,35 @@
                                 display: true,
                                 text: 'DNS Magnitude'
                             }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: showCnt, // Count非表示なら軸も消す
+                            position: 'right',
+                            beginAtZero: true,
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            title: {
+                                display: true,
+                                text: 'Query Count'
+                            }
                         }
                     },
                     plugins: {
                         title: {
                             display: true,
-                            text: `DNS Magnitude Trend: ${data.subdomain}`
+                            text: `DNS Trend: ${data.subdomain}`
                         }
                     }
                 }
             });
+        }
+
+        function updateChartVisibility() {
+            if (currentChartData) {
+                updateChart(currentChartData);
+            }
         }
     </script>
 </body>

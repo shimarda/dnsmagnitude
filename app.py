@@ -134,6 +134,8 @@ def api_magnitude(date_str):
             
         # 順位計算 (Magnitudeの降順)
         df['rank'] = df['magnitude'].rank(ascending=False, method='min')
+        if 'count' in df.columns:
+            df['count_rank'] = df['count'].rank(ascending=False, method='min')
 
         if prev_date:
             df_prev = load_magnitude_data(prev_date, where)
@@ -141,24 +143,46 @@ def api_magnitude(date_str):
                 # 型変換を行ってマージの安定性を高める
                 df['subdomain'] = df['subdomain'].astype(str)
                 df['magnitude'] = pd.to_numeric(df['magnitude'], errors='coerce')
+                if 'count' in df.columns:
+                    df['count'] = pd.to_numeric(df['count'], errors='coerce')
                 
                 # 前日の順位も計算
                 df_prev['prev_rank'] = df_prev['magnitude'].rank(ascending=False, method='min')
+                
+                cols_to_use = ['subdomain', 'magnitude', 'prev_rank']
+                rename_map = {'magnitude': 'prev_magnitude'}
+                
+                if 'count' in df_prev.columns:
+                    df_prev['prev_count_rank'] = df_prev['count'].rank(ascending=False, method='min')
+                    cols_to_use.extend(['count', 'prev_count_rank'])
+                    rename_map['count'] = 'prev_count'
 
-                df_prev_subset = df_prev[['subdomain', 'magnitude', 'prev_rank']].rename(columns={'magnitude': 'prev_magnitude'})
+                df_prev_subset = df_prev[cols_to_use].rename(columns=rename_map)
                 df_prev_subset['subdomain'] = df_prev_subset['subdomain'].astype(str)
                 df_prev_subset['prev_magnitude'] = pd.to_numeric(df_prev_subset['prev_magnitude'], errors='coerce')
+                if 'prev_count' in df_prev_subset.columns:
+                    df_prev_subset['prev_count'] = pd.to_numeric(df_prev_subset['prev_count'], errors='coerce')
                 
                 df = pd.merge(df, df_prev_subset, on='subdomain', how='left')
                 df['diff'] = df['magnitude'] - df['prev_magnitude']
                 # 順位変動: 前日順位 - 当日順位 (プラスなら順位上昇)
                 df['rank_diff'] = df['prev_rank'] - df['rank']
+                
+                if 'count' in df.columns and 'prev_count' in df.columns:
+                    df['count_diff'] = df['count'] - df['prev_count']
+                    df['count_rank_diff'] = df['prev_count_rank'] - df['count_rank']
             else:
                 df['diff'] = None
                 df['rank_diff'] = None
+                if 'count' in df.columns:
+                    df['count_diff'] = None
+                    df['count_rank_diff'] = None
         else:
             df['diff'] = None
             df['rank_diff'] = None
+            if 'count' in df.columns:
+                df['count_diff'] = None
+                df['count_rank_diff'] = None
 
         # Top N を取得（指定がある場合のみ制限）
         if top_n is not None:
@@ -204,9 +228,13 @@ def api_trend(subdomain):
                 weekday = weekdays[dt.weekday()]
                 date_display = f"{date_str} ({weekday})"
 
+                val = float(row['magnitude'].iloc[0])
+                cnt = float(row['count'].iloc[0]) if 'count' in row.columns else None
+
                 trend_data.append({
                     'date': date_display,
-                    'magnitude': float(row['magnitude'].iloc[0])
+                    'magnitude': val,
+                    'count': cnt
                 })
     
     return jsonify({
@@ -260,18 +288,24 @@ def api_trend_combined():
         # 権威 (0)
         df_auth = load_magnitude_data(d, 0)
         auth_mag = None
+        auth_cnt = None
         if df_auth is not None:
             row = df_auth[df_auth['subdomain'] == subdomain]
             if not row.empty:
                 auth_mag = float(row['magnitude'].iloc[0])
+                if 'count' in row.columns:
+                    auth_cnt = float(row['count'].iloc[0])
                 
         # リゾルバ (1)
         df_res = load_magnitude_data(d, 1)
         res_mag = None
+        res_cnt = None
         if df_res is not None:
             row = df_res[df_res['subdomain'] == subdomain]
             if not row.empty:
                 res_mag = float(row['magnitude'].iloc[0])
+                if 'count' in row.columns:
+                    res_cnt = float(row['count'].iloc[0])
         
         # どちらかがあればデータとして追加
         if auth_mag is not None or res_mag is not None:
@@ -284,7 +318,9 @@ def api_trend_combined():
             trend_data.append({
                 'date': date_display,
                 'auth_mag': auth_mag,
-                'res_mag': res_mag
+                'res_mag': res_mag,
+                'auth_cnt': auth_cnt,
+                'res_cnt': res_cnt
             })
             
     return jsonify({

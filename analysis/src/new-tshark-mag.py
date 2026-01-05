@@ -99,14 +99,15 @@ def compute_magnitude(domain_ip_dict, A_tot):
 
 # --- 出力 ---
 
-def write_output(mag_dict, year, month, day, where, out_dir="/home/shimada/analysis/output"):
+def write_output(mag_dict, count_dict, year, month, day, where, out_dir="/home/shimada/analysis/output"):
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f"{where}-{year}-{month}-{day}.csv")
     with open(path, 'w', newline='') as f:
         w = csv.writer(f)
-        w.writerow(['day', 'domain', 'dnsmagnitude'])
+        w.writerow(['day', 'domain', 'dnsmagnitude', 'count'])
         for dom, mag in mag_dict.items():
-            w.writerow([day, dom, f"{mag:.6f}"])
+            cnt = count_dict.get(dom, 0)
+            w.writerow([day, dom, f"{mag:.6f}", cnt])
     print(f"結果を保存: {path}")
     return path
 
@@ -150,6 +151,7 @@ def main():
     # 全行から A_tot を取るための ip.dst 集合
     all_ipdst = set()
     domain_ip = defaultdict(set)
+    domain_count = defaultdict(int)
 
     for p in sorted(paths):
         print(f"読み込み: {os.path.basename(p)}")
@@ -173,6 +175,12 @@ def main():
         v = df[df['subdomain'].notna()].copy()
         if v.empty:
             continue
+        
+        # クエリ数集計
+        counts = v['subdomain'].value_counts().to_dict()
+        for dom, count in counts.items():
+            domain_count[dom] += count
+
         g = v.groupby('subdomain')['ip.dst'].apply(lambda s: set(s.dropna())).to_dict()
         for dom, s in g.items():
             domain_ip[dom].update(s)
@@ -188,9 +196,9 @@ def main():
     # 上位10表示
     print("\n=== Top 10 ===")
     for i, (dom, mval) in enumerate(list(mag.items())[:10], 1):
-        print(f"{i:2d}. {dom:20} {mval:8.6f} (IPs={len(domain_ip[dom])})")
+        print(f"{i:2d}. {dom:20} {mval:8.6f} (IPs={len(domain_ip[dom])}, Count={domain_count[dom]})")
 
-    write_output(mag, y, m, d, w)
+    write_output(mag, domain_count, y, m, d, w)
 
     # エラーログ
     if errors_total:
