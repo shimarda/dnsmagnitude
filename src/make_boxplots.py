@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Monthly boxplots of DNS Magnitude (mean and standard deviation) per domain
-
-Input: Daily CSV files in a directory
-  - 0-YYYY-MM-DD.csv  … Authoritative DNS
-  - 1-YYYY-MM-DD.csv  … Resolver DNS
-CSV format:
-  day,domain,dnsmagnitude
-
-Output:
-  month_boxplot_mean.png      … Boxplot of monthly mean (y-axis fixed 0-10, Auth/Reso side by side)
-  month_boxplot_std.png       … Boxplot of monthly std deviation (Auth/Reso side by side)
-"""
-
 import argparse
 import glob
 from pathlib import Path
@@ -64,16 +50,24 @@ def plot_two_boxplots_side_by_side(
 ):
     """Draw two side-by-side boxplots"""
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.boxplot([data_left, data_right], labels=labels, showfliers=True)
+    
+    # 箱ひげ図の幅を広げて間隔を詰める
+    bp = ax.boxplot([data_left, data_right], labels=labels, showfliers=True, widths=0.6)
 
     # Bold font for title, ylabel, and x-axis labels
     ax.set_title(title, fontweight="bold", fontsize=14)
-    ax.set_ylabel(ylabel, fontweight="bold", fontsize=12)
+    ax.set_ylabel(ylabel, fontweight="bold", fontsize=24)  # 12 → 24に変更
+    
+    # x軸ラベルのフォントサイズと太字を設定
     for lbl in ax.get_xticklabels():
         lbl.set_fontweight("bold")
+        lbl.set_fontsize(24)
 
     if ylimit is not None:
         ax.set_ylim(ylimit[0], ylimit[1])
+    
+    # x軸の範囲を狭めて箱ひげ図の間隔を詰める
+    ax.set_xlim(0.5, 2.5)
 
     ax.grid(axis="y", linestyle=":", alpha=0.6)
     fig.tight_layout()
@@ -109,8 +103,8 @@ def main():
         data_left=means_auth,
         data_right=means_reso,
         labels=("Authoritative", "Resolver"),
-        title=f"Domain-wise Monthly Mean of DNS Magnitude ({args.year}-{args.month:02d})",
-        ylabel="DNS Magnitude (monthly mean)",
+        # title=f"Domain-wise Monthly Mean of DNS Magnitude ({args.year}-{args.month:02d})",
+        ylabel="Mean",
         ylimit=(0, 10),
         outfile=str(out_dir / "month_boxplot_mean.pdf"),
     )
@@ -122,8 +116,8 @@ def main():
         data_left=stds_auth,
         data_right=stds_reso,
         labels=("Authoritative", "Resolver"),
-        title=f"Domain-wise Monthly Std Dev of DNS Magnitude ({args.year}-{args.month:02d})",
-        ylabel="DNS Magnitude (monthly std dev)",
+        # title=f"Domain-wise Monthly Std Dev of DNS Magnitude ({args.year}-{args.month:02d})",
+        ylabel="Std Dev",
         ylimit=None,
         outfile=str(out_dir / "month_boxplot_std.pdf"),
     )
