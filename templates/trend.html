@@ -1,22 +1,68 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DNS Magnitude トレンド表示</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; }
-        .header { background: #2c3e50; color: white; padding: 20px; }
-        .header h1 { font-size: 24px; }
-        .controls { background: white; padding: 20px; margin: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .controls input, .controls button { padding: 10px; font-size: 14px; margin-right: 10px; }
-        .content { margin: 20px; }
-        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .chart-container { position: relative; height: 500px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls input,
+        .controls button {
+            padding: 10px;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .content {
+            margin: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 500px;
+        }
     </style>
 </head>
+
 <body>
     <div class="header">
         <h1>📈 DNS Magnitude トレンド: <span id="domainTitle"></span></h1>
@@ -25,19 +71,27 @@
     <div class="controls">
         <label>ドメイン:</label>
         <input type="text" id="subdomainInput" placeholder="manaba">
-        
+
         <label>期間:</label>
         <input type="date" id="startDate">
         <span>～</span>
         <input type="date" id="endDate">
-        
+
         <div style="margin-top: 10px;">
             <label>表示指標:</label>
             <input type="checkbox" id="showMagnitude" checked onchange="updateChartVisibility()"> Magnitude
             <input type="checkbox" id="showCount" onchange="updateChartVisibility()"> Query Count
+
+            <label style="margin-left: 20px;">測定単位:</label>
+            <select id="timeModeSelect" style="padding: 5px;">
+                <option value="daily" selected>1日（終日）</option>
+                <option value="business">1日（業務時間 8-18時）</option>
+                <option value="weekly">1週間</option>
+            </select>
         </div>
 
         <button onclick="loadTrendData()">グラフ更新</button>
+        <button onclick="exportToPDF()">📄 PDFで保存</button>
         <button onclick="window.close()">閉じる</button>
     </div>
 
@@ -56,24 +110,24 @@
         // URLパラメータ取得
         const urlParams = new URLSearchParams(window.location.search);
         const initialSubdomain = urlParams.get('subdomain');
-        
+
         // 初期設定
         window.onload = () => {
             if (initialSubdomain) {
                 document.getElementById('subdomainInput').value = initialSubdomain;
                 document.getElementById('domainTitle').textContent = initialSubdomain;
             }
-            
+
             // 日付の初期値
             const latestDateStr = "{{ latest_date }}";
-            
+
             if (latestDateStr) {
                 document.getElementById('endDate').value = latestDateStr;
-                
+
                 const end = new Date(latestDateStr);
                 const start = new Date(end);
                 start.setDate(end.getDate() - 30);
-                
+
                 const y = start.getFullYear();
                 const m = ('0' + (start.getMonth() + 1)).slice(-2);
                 const d = ('0' + start.getDate()).slice(-2);
@@ -85,7 +139,7 @@
                 start.setDate(end.getDate() - 30);
                 document.getElementById('startDate').valueAsDate = start;
             }
-            
+
             if (initialSubdomain) {
                 loadTrendData();
             }
@@ -95,7 +149,8 @@
             const subdomain = document.getElementById('subdomainInput').value;
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
-            
+            const timeMode = document.getElementById('timeModeSelect').value;
+
             if (!subdomain) {
                 alert('ドメインを指定してください');
                 return;
@@ -104,7 +159,7 @@
             document.getElementById('domainTitle').textContent = subdomain;
 
             try {
-                const response = await fetch(`/api/trend_combined?subdomain=${subdomain}&start=${start}&end=${end}`);
+                const response = await fetch(`/api/trend_combined?subdomain=${subdomain}&start=${start}&end=${end}&time_mode=${timeMode}`);
                 const data = await response.json();
 
                 if (data.error) {
@@ -123,17 +178,17 @@
 
         function updateChart(data) {
             const ctx = document.getElementById('trendChart').getContext('2d');
-            
+
             if (trendChart) {
                 trendChart.destroy();
             }
-            
+
             const labels = data.data.map(d => d.date);
             const authData = data.data.map(d => d.auth_mag);
             const resData = data.data.map(d => d.res_mag);
             const authCnt = data.data.map(d => d.auth_cnt);
             const resCnt = data.data.map(d => d.res_cnt);
-            
+
             // チェックボックスの状態を取得
             const showMag = document.getElementById('showMagnitude').checked;
             const showCnt = document.getElementById('showCount').checked;
@@ -234,6 +289,47 @@
                 updateChart(currentChartData);
             }
         }
+
+        function exportToPDF() {
+            if (!trendChart) {
+                alert('グラフを表示してから保存してください');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('landscape', 'mm', 'a4');
+
+            // グラフタイトルとドメイン名を取得
+            const subdomain = document.getElementById('subdomainInput').value || 'unknown';
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            // PDFにタイトルを追加
+            pdf.setFontSize(16);
+            pdf.text(`DNS Magnitude Trend: ${subdomain}`, 15, 15);
+            pdf.setFontSize(10);
+            pdf.text(`Period: ${startDate} - ${endDate}`, 15, 22);
+            pdf.text(`Generated: ${new Date().toLocaleString('ja-JP')}`, 15, 28);
+
+            // Chart.jsキャンバスを画像として取得
+            const canvas = document.getElementById('trendChart');
+            const imgData = canvas.toDataURL('image/png', 1.0);
+
+            // A4横向き: 297mm x 210mm
+            const pageWidth = 297;
+            const pageHeight = 210;
+            const margin = 15;
+            const imgWidth = pageWidth - (margin * 2);
+            const imgHeight = (canvas.height / canvas.width) * imgWidth;
+
+            // 画像をPDFに追加
+            pdf.addImage(imgData, 'PNG', margin, 35, imgWidth, Math.min(imgHeight, pageHeight - 50));
+
+            // ファイル名を生成して保存
+            const filename = `dns_trend_${subdomain}_${startDate}_${endDate}.pdf`;
+            pdf.save(filename);
+        }
     </script>
 </body>
+
 </html>

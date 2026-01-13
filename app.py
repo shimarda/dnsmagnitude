@@ -18,7 +18,15 @@ app = Flask(__name__)
 OUTPUT_DIRS = [
     "/home/shimada/analysis/output"
 ]
+OUTPUT_DIR_TIME = "/home/shimada/analysis/output-time"  # 業務時間データ
 DAYS_TO_SHOW = None  # None = 全件表示、数値を設定すれば件数制限
+
+# 時間モード設定
+TIME_MODES = {
+    'daily': '1日（終日）',
+    'business': '1日（業務時間 8-18時）',
+    'weekly': '1週間'
+}
 
 def get_available_dates():
     """利用可能な日付一覧を取得
@@ -98,6 +106,93 @@ def load_magnitude_data(date_str, where=0):
         print(f"Error loading {filepath}: {e}")
         return None
 
+def load_magnitude_data_with_mode(date_str, where=0, time_mode='daily'):
+    """指定日のMagnitudeデータを時間モードに応じて読み込み
+    
+    Args:
+        date_str: 日付文字列 (YYYY-MM-DD)
+        where: 0=権威サーバー, 1=リゾルバ
+        time_mode: 'daily', 'business', 'weekly'
+    """
+    if time_mode == 'daily':
+        return load_magnitude_data(date_str, where)
+    
+    elif time_mode == 'business':
+        # 業務時間(08-18)データを読み込む
+        filepath = os.path.join(OUTPUT_DIR_TIME, f"{where}-{date_str}-08-18.csv")
+        if not os.path.exists(filepath):
+            # フォールバック: 通常の日次データ
+            return load_magnitude_data(date_str, where)
+        
+        try:
+            df = pd.read_csv(filepath)
+            if 'domain' in df.columns:
+                df = df.rename(columns={'domain': 'subdomain'})
+            if 'dnsmagnitude' in df.columns:
+                df = df.rename(columns={'dnsmagnitude': 'magnitude'})
+            
+            # クエリカウントデータを読み込んでマージ
+            count_filepath = os.path.join(OUTPUT_DIR_TIME, f"count-{where}-{date_str}-08-18.csv")
+            if os.path.exists(count_filepath):
+                try:
+                    df_count = pd.read_csv(count_filepath)
+                    if 'subdomain' in df_count.columns and 'query_count' in df_count.columns:
+                        # subdomainをキーにしてカウントをマージ
+                        df_count_subset = df_count[['subdomain', 'query_count']].rename(
+                            columns={'query_count': 'count'}
+                        )
+                        df = pd.merge(df, df_count_subset, on='subdomain', how='left')
+                except Exception as e:
+                    print(f"Warning: Could not load count data: {e}")
+            
+            return df
+        except Exception as e:
+            print(f"Error loading {filepath}: {e}")
+            return None
+    
+    elif time_mode == 'weekly':
+        # 週単位データ: 指定日を含む週（月曜〜日曜）のデータを集約
+        return load_weekly_data(date_str, where)
+    
+    return None
+
+def load_weekly_data(date_str, where=0):
+    """指定日を含む週のデータを集約して返す"""
+    try:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return None
+    
+    # 週の月曜日を取得
+    monday = target_date - timedelta(days=target_date.weekday())
+    
+    # 月曜から日曜までのデータを集約
+    all_data = []
+    for i in range(7):
+        day = monday + timedelta(days=i)
+        day_str = day.strftime("%Y-%m-%d")
+        df = load_magnitude_data(day_str, where)
+        if df is not None and not df.empty:
+            all_data.append(df)
+    
+    if not all_data:
+        return None
+    
+    # 全データを結合
+    combined = pd.concat(all_data, ignore_index=True)
+    
+    # サブドメインごとに集計（平均値を使用）
+    if 'subdomain' not in combined.columns:
+        return None
+    
+    agg_cols = {'magnitude': 'mean'}
+    if 'count' in combined.columns:
+        agg_cols['count'] = 'sum'
+    
+    result = combined.groupby('subdomain').agg(agg_cols).reset_index()
+    
+    return result
+
 @app.route('/')
 def index():
     """メインダッシュボード"""
@@ -117,8 +212,9 @@ def api_magnitude(date_str):
     try:
         where = request.args.get('where', 0, type=int)
         top_n = request.args.get('top', type=int)  # デフォルトなし = 全件
+        time_mode = request.args.get('time_mode', 'daily', type=str)
         
-        df = load_magnitude_data(date_str, where)
+        df = load_magnitude_data_with_mode(date_str, where, time_mode)
         if df is None:
             return jsonify({'error': 'Data not found'}), 404
         
@@ -262,6 +358,7 @@ def api_trend_combined():
     subdomain = request.args.get('subdomain')
     start_date_str = request.args.get('start')
     end_date_str = request.args.get('end')
+    time_mode = request.args.get('time_mode', 'daily', type=str)
     
     if not subdomain:
         return jsonify({'error': 'Subdomain is required'}), 400
@@ -286,7 +383,7 @@ def api_trend_combined():
     
     for d in date_list:
         # 権威 (0)
-        df_auth = load_magnitude_data(d, 0)
+        df_auth = load_magnitude_data_with_mode(d, 0, time_mode)
         auth_mag = None
         auth_cnt = None
         if df_auth is not None:
@@ -297,7 +394,7 @@ def api_trend_combined():
                     auth_cnt = float(row['count'].iloc[0])
                 
         # リゾルバ (1)
-        df_res = load_magnitude_data(d, 1)
+        df_res = load_magnitude_data_with_mode(d, 1, time_mode)
         res_mag = None
         res_cnt = None
         if df_res is not None:
@@ -325,6 +422,7 @@ def api_trend_combined():
             
     return jsonify({
         'subdomain': subdomain,
+        'time_mode': time_mode,
         'data': trend_data
     })
 
