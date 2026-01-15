@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Monthly boxplots of Query Count (mean and standard deviation) per domain
+
+Input: Daily CSV files in a directory
+  - count-0-YYYY-MM-DD.csv  … Authoritative DNS
+  - count-1-YYYY-MM-DD.csv  … Resolver DNS
+CSV format:
+  day,domain,count
+
+Output:
+  month_boxplot_count_mean.pdf      … Boxplot of monthly mean (Auth/Reso side by side)
+  month_boxplot_count_std.pdf       … Boxplot of monthly std deviation (Auth/Reso side by side)
+"""
+
 import argparse
 import glob
 from pathlib import Path
@@ -8,35 +22,35 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def load_month_df(base_dir: Path, typ: int, year: int, month: int) -> pd.DataFrame:
-    """Load daily CSVs for a given month and concatenate them"""
-    pattern = f"{typ}-{year:04d}-{month:02d}-*.csv"
+    """Load daily count CSVs for a given month and concatenate them"""
+    pattern = f"count-{typ}-{year:04d}-{month:02d}-*.csv"
     paths = sorted(glob.glob(str(base_dir / pattern)))
     if not paths:
         print(f"[WARN] No files matched: {pattern}")
-        return pd.DataFrame(columns=["day", "domain", "dnsmagnitude"])
+        return pd.DataFrame(columns=["day", "domain", "count"])
 
     dfs = []
     for p in paths:
         try:
             df = pd.read_csv(p)
-            if "dnsmagnitude" in df.columns:
-                df["dnsmagnitude"] = pd.to_numeric(df["dnsmagnitude"], errors="coerce")
+            if "count" in df.columns:
+                df["count"] = pd.to_numeric(df["count"], errors="coerce")
             else:
-                raise ValueError(f"dnsmagnitude column missing in {p}")
+                raise ValueError(f"count column missing in {p}")
             if "domain" not in df.columns:
                 raise ValueError(f"domain column missing in {p}")
-            dfs.append(df[["day", "domain", "dnsmagnitude"]].dropna())
+            dfs.append(df[["day", "domain", "count"]].dropna())
         except Exception as e:
             print(f"[WARN] Failed to read {p}: {e}")
     if not dfs:
-        return pd.DataFrame(columns=["day", "domain", "dnsmagnitude"])
+        return pd.DataFrame(columns=["day", "domain", "count"])
     return pd.concat(dfs, ignore_index=True)
 
 def compute_domain_stats(df: pd.DataFrame) -> pd.DataFrame:
     """Compute monthly mean and std dev for each domain"""
     if df.empty:
         return pd.DataFrame(columns=["domain", "mean", "std"])
-    g = df.groupby("domain")["dnsmagnitude"]
+    g = df.groupby("domain")["count"]
     out = pd.DataFrame({
         "domain": g.mean().index,
         "mean": g.mean().values,
@@ -56,13 +70,16 @@ def plot_two_boxplots_side_by_side(
 
     # Bold font for title, ylabel, and x-axis labels
     ax.set_title(title, fontweight="bold", fontsize=14)
-    ax.set_ylabel(ylabel, fontweight="bold", fontsize=24)  # 12 → 24に変更
+    ax.set_ylabel(ylabel, fontweight="bold", fontsize=24)
     
     # x軸ラベルのフォントサイズと太字を設定
     for lbl in ax.get_xticklabels():
         lbl.set_fontweight("bold")
         lbl.set_fontsize(24)
 
+    # y軸を対数スケールに設定
+    ax.set_yscale("log")
+    
     if ylimit is not None:
         ax.set_ylim(ylimit[0], ylimit[1])
     
@@ -77,9 +94,9 @@ def plot_two_boxplots_side_by_side(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate monthly boxplots of DNS Magnitude (mean & std)"
+        description="Generate monthly boxplots of Query Count (mean & std)"
     )
-    parser.add_argument("--base-dir", required=True, help="Directory containing CSVs (e.g., /home/shimada/analysis/output)")
+    parser.add_argument("--base-dir", required=True, help="Directory containing count CSVs (e.g., /home/shimada/analysis/output-2025)")
     parser.add_argument("--year", type=int, default=2025, help="Year (YYYY)")
     parser.add_argument("--month", type=int, default=4, help="Month (MM)")
     parser.add_argument("--out-dir", default=".", help="Output directory")
@@ -100,25 +117,25 @@ def main():
     
     # 1. Authoritative - Mean
     stats_auth_mean = stats_auth[["domain", "mean"]].sort_values(by="mean", ascending=False)
-    csv_auth_mean = out_dir / f"mag_domain_stats_auth_mean_{args.year}-{args.month:02d}.csv"
+    csv_auth_mean = out_dir / f"domain_stats_auth_mean_{args.year}-{args.month:02d}.csv"
     stats_auth_mean.to_csv(csv_auth_mean, index=False)
     print(f"[INFO] saved: {csv_auth_mean}")
 
     # 2. Authoritative - Std
     stats_auth_std = stats_auth[["domain", "std"]].sort_values(by="std", ascending=False)
-    csv_auth_std = out_dir / f"mag_domain_stats_auth_std_{args.year}-{args.month:02d}.csv"
+    csv_auth_std = out_dir / f"domain_stats_auth_std_{args.year}-{args.month:02d}.csv"
     stats_auth_std.to_csv(csv_auth_std, index=False)
     print(f"[INFO] saved: {csv_auth_std}")
 
     # 3. Resolver - Mean
     stats_reso_mean = stats_reso[["domain", "mean"]].sort_values(by="mean", ascending=False)
-    csv_reso_mean = out_dir / f"mag_domain_stats_reso_mean_{args.year}-{args.month:02d}.csv"
+    csv_reso_mean = out_dir / f"domain_stats_reso_mean_{args.year}-{args.month:02d}.csv"
     stats_reso_mean.to_csv(csv_reso_mean, index=False)
     print(f"[INFO] saved: {csv_reso_mean}")
 
     # 4. Resolver - Std
     stats_reso_std = stats_reso[["domain", "std"]].sort_values(by="std", ascending=False)
-    csv_reso_std = out_dir / f"mag_domain_stats_reso_std_{args.year}-{args.month:02d}.csv"
+    csv_reso_std = out_dir / f"domain_stats_reso_std_{args.year}-{args.month:02d}.csv"
     stats_reso_std.to_csv(csv_reso_std, index=False)
     print(f"[INFO] saved: {csv_reso_std}")
 
@@ -129,10 +146,10 @@ def main():
         data_left=means_auth,
         data_right=means_reso,
         labels=("Authoritative", "Resolver"),
-        # title=f"Domain-wise Monthly Mean of DNS Magnitude ({args.year}-{args.month:02d})",
+        # title=f"Domain-wise Monthly Mean of Query Count ({args.year}-{args.month:02d})",
         ylabel="Mean",
-        ylimit=(0, 10),
-        outfile=str(out_dir / "mag_month_boxplot_mean.pdf"),
+        ylimit=None,  # Query countはスケールが大きいので自動
+        outfile=str(out_dir / "month_boxplot_count_mean.pdf"),
     )
 
     # ---- Std dev boxplot ----
@@ -142,10 +159,10 @@ def main():
         data_left=stds_auth,
         data_right=stds_reso,
         labels=("Authoritative", "Resolver"),
-        # title=f"Domain-wise Monthly Std Dev of DNS Magnitude ({args.year}-{args.month:02d})",
+        # title=f"Domain-wise Monthly Std Dev of Query Count ({args.year}-{args.month:02d})",
         ylabel="Std Dev",
         ylimit=None,
-        outfile=str(out_dir / "mag_month_boxplot_std.pdf"),
+        outfile=str(out_dir / "month_boxplot_count_std.pdf"),
     )
 
 if __name__ == "__main__":
